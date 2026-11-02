@@ -123,8 +123,12 @@
       const wg = s.workgroup || NOT_STATED;
       const displayKind = milestone ? milestone.kind : "draft";
       const hay = [s.title, s.key, wg, ...(s.former_names || []).flatMap((f) => [f.key, f.title]), ...(s.revisions.flatMap((r) => r.authors.map((a) => a.name)))].join(" ").toLowerCase();
+      // A draft dated after the latest approved document (Final, errata set or ID). What it is
+      // heading toward (errata, a revision, the next ID) is not stated anywhere, so it isn't claimed.
+      const newerDraft = s.in_progress && !!milestone;
+      const recentNewerDraft = newerDraft && !!latest && monthsAgo(latest.date || latest.listed) <= 12;
       return Object.assign({}, s, { milestoneRev: milestone, latestRev: latest, superseded, wg, displayKind, hay,
-        active: monthsAgo(s.updated) <= 12 });
+        newerDraft, recentNewerDraft, active: monthsAgo(s.updated) <= 12 });
     });
   }
 
@@ -158,7 +162,7 @@
       { key: "final", label: "Final", value: n("final"), note: `${live.filter((s) => s.counts.errata).length} with errata`, color: "final" },
       { key: "implementers", label: "Implementer's Drafts", value: n("implementers"), note: "highest level reached", color: "implementers" },
       { key: "draft", label: "Drafts", value: n("draft"), note: "no ID or Final yet", color: "draft" },
-      { key: "active", label: "Active in last 12 months", value: live.filter((s) => s.active).length, note: `${live.filter((s) => s.in_progress).length} with work toward next edition` },
+      { key: "active", label: "Active in last 12 months", value: live.filter((s) => s.active).length, note: `${live.filter((s) => s.recentNewerDraft).length} with drafts after their latest approved document` },
     ];
     $("#kpis").innerHTML = tiles.map((t) => {
       const on = t.key === "active" ? state.active : (t.key === state.status && !state.active && (t.key || !state.status));
@@ -175,9 +179,9 @@
     const live = SPECS.filter((s) => !s.superseded);
     const fin = live.filter((s) => s.status === "final").length;
     const active = live.filter((s) => s.active).length;
-    const prog = live.filter((s) => s.in_progress).length;
+    const newer = live.filter((s) => s.recentNewerDraft).length;
     $("#headline").textContent = `${fin} of ${live.length} OpenID specifications have reached Final`;
-    $("#lead").textContent = `${active} were revised in the last 12 months, and ${prog} have drafts in progress toward their next edition.`;
+    $("#lead").textContent = `${active} were revised in the last 12 months; ${newer} of them have a draft newer than their latest approved document.`;
   }
 
   // ---------------------------------------------------------------- charts
@@ -206,7 +210,7 @@
     const total = (c) => KINDS.reduce((a, k) => a + c[k], 0);
     const peak = all.reduce((a, d) => (total(d.c) > total(a.c) ? d : a));
     const recent = all.filter((d) => d.y >= NOW.getFullYear() - 4).reduce((a, d) => a + d.c.final + d.c.errata, 0);
-    $("#activity-title").textContent = `Activity peaked in ${peak.y} with ${total(peak.c)} revisions; ${recent} Final editions and errata since ${NOW.getFullYear() - 4}`;
+    $("#activity-title").textContent = `Activity peaked in ${peak.y} with ${total(peak.c)} revisions; ${recent} Finals and errata sets approved since ${NOW.getFullYear() - 4}`;
     const W = Math.max(el.clientWidth, 320), H = 240, m = { t: 10, r: 8, b: 26, l: 34 };
     const iw = W - m.l - m.r, ih = H - m.t - m.b;
     const max = niceMax(Math.max(...all.map((d) => total(d.c))));
@@ -317,11 +321,16 @@
     return `<div class="track" title="Draft · Implementer's Draft · Final" aria-hidden="true">${["draft", "implementers", "final"].map((k, i) =>
       `${i ? "<b></b>" : ""}<i class="${i < lvl ? "on" : ""}"></i>`).join("")}</div>`;
   }
+  // Short name of the latest approved document: "Final", "Errata Set 2", "ID2".
+  function approvedShort(r) {
+    if (!r) return "";
+    return r.kind === "implementers" ? "ID" + (r.number || "") : r.kind === "errata" ? "Errata Set " + (r.number || "") : "Final";
+  }
   function flags(s) {
     const f = [];
     if (s.superseded) f.push(`<span class="badge renamed">${esc(s.redirect.reason.replace(/ ?Specification ?/, "")) || "Obsolete"}</span>`);
     if (s.issues && s.issues.some((i) => i.severity === "error")) f.push(`<span class="flag flag-issue" title="The published document has a metadata error; see details">Metadata error in source</span>`);
-    if (s.in_progress) f.push(`<span class="flag">${s.status === "final" ? "Errata / revision in progress" : "Drafts since " + (s.milestoneRev ? (s.milestoneRev.kind === "implementers" ? "ID" + s.milestoneRev.number : "milestone") : "")}</span>`);
+    if (s.newerDraft) f.push(`<span class="flag" title="A draft has been published after the latest approved document. The dashboard cannot tell whether it is errata, a revision or the next approval step.">Drafts after ${esc(approvedShort(s.milestoneRev))}</span>`);
     return f.length ? `<div class="flags">${f.join("")}</div>` : "";
   }
   const ISSUE_LABEL = { error: "Fix in source", check: "Confirm", rename: "Possible rename", stub: "Add redirect", missing: "Add to source", historical: "Missing (historical)", naming: "Harmonise", other: "Check" };
@@ -361,7 +370,7 @@
           <span class="spec-key mono">${esc(s.key)}</span>${formerLine(s)}</td>
         <td class="td-wg" data-label="Working group">${esc(s.wg)}${wgMark(s)}</td>
         <td data-label="Status">${statusBadge(s)}${track(s)}${flags(s)}</td>
-        <td data-label="Current edition">${revCell(s.milestoneRev)}</td>
+        <td data-label="Latest approved">${revCell(s.milestoneRev)}</td>
         <td data-label="Latest revision">${latestDiff || !s.milestoneRev ? revCell(s.latestRev) : `<span class="spec-key">same</span>`}</td>
         <td class="td-date" data-label="Updated">${fmtDate(s.updated)}<span class="rev-date">${relTime(s.updated)}</span></td>
         <td class="td-ed" data-label="Editors">${esc(editorsShort(s.authors))}</td>
@@ -405,7 +414,7 @@
       <dl class="d-grid">
         <dt>Filename stem</dt><dd class="mono">${esc(s.key)}</dd>
         ${s.current_url ? `<dt>Canonical URL</dt><dd><a href="${specUrl(s.current_url)}" target="_blank" rel="noopener">${esc(specUrl(s.current_url))}</a></dd>` : ""}
-        <dt>Current edition</dt><dd>${m ? `<a href="${specUrl(m.file)}" target="_blank" rel="noopener">${esc(m.label)}</a> · ${fmtDate(m.date || m.listed)}` : "No Implementer's Draft or Final yet"}</dd>
+        <dt>Latest approved</dt><dd>${m ? `<a href="${specUrl(m.file)}" target="_blank" rel="noopener">${esc(m.label)}</a> · ${fmtDate(m.date || m.listed)}` : "No Implementer's Draft or Final yet"}</dd>
         <dt>Latest revision</dt><dd>${l ? `<a href="${specUrl(l.file)}" target="_blank" rel="noopener">${esc(l.label)}</a> · ${fmtDate(l.date || l.listed)} <span class="spec-key">(${relTime(l.date || l.listed)})</span>` : "—"}</dd>
         <dt>Revisions</dt><dd>${s.counts.draft} drafts · ${s.counts.implementers} Implementer's Drafts · ${s.counts.final} Final · ${s.counts.errata} errata</dd>
         ${s.workgroup_raw && s.workgroup_raw !== s.wg ? `<dt>WG as stated</dt><dd>${esc(s.workgroup_raw)}</dd>` : ""}
@@ -488,7 +497,7 @@
     return `"${t.replace(/"/g, '""')}"`;
   }
   function exportCsv() {
-    const cols = ["title", "key", "working_group", "status", "current_edition", "current_edition_date", "latest_revision", "latest_revision_date", "editors", "url"];
+    const cols = ["title", "key", "working_group", "status", "latest_approved", "latest_approved_date", "latest_revision", "latest_revision_date", "editors", "url"];
     const q = csvCell;
     const lines = [cols.join(",")].concat(filtered().map((s) => [
       s.title, s.key, s.wg, s.status_label + (s.counts.errata && s.milestoneRev ? " (errata " + s.milestoneRev.number + ")" : ""),

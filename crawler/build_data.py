@@ -693,7 +693,7 @@ def build(listing, cache_dir, renamed_to=None):
         alias_meta = load(spec["alias"]["stem"]) if spec.get("alias") else {}
 
         if alias_meta and not alias_meta.get("redirect"):
-            # The unversioned URL is itself the published edition when nothing else is,
+            # The unversioned URL is itself the published document when nothing else is,
             # or when the document says it is Final but no -final file exists
             # (OpenID 2.0-era specs were published this way).
             kind = _kind_from_doc(alias_meta)
