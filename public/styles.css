@@ -53,7 +53,6 @@ button, input, select { font: inherit; color: inherit; }
 
 /* Header: content-slide layout — kicker, title that states the point, lead. ---- */
 .site-header { border-bottom: 1px solid var(--rule); }
-.header-bar { height: 6px; background: var(--orange); }
 .header-inner { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding-top: 28px; padding-bottom: 24px; flex-wrap: wrap; }
 .brand { display: inline-block; margin-bottom: 18px; }
 .brand img { display: block; height: 40px; width: auto; }
