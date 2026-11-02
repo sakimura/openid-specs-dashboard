@@ -1,8 +1,8 @@
 # OpenID Specifications Dashboard (prototype)
 
 A dashboard of every specification published at <https://openid.net/specs/>:
-current maturity (Draft → Implementer's Draft → Final → Errata), the current edition,
-the latest revision, the working group, the editors, and the full revision history.
+specification status (Draft → Implementer's Draft → Final, with any errata sets), the latest
+approved document, the latest revision, the working group, the editors, and the full revision history.
 
 Two parts, no build step:
 
@@ -37,9 +37,16 @@ Then open <http://localhost:8765>. The first crawl downloads all ~950 HTML files
   the Authors' Addresses section.
 - **Revisions are ordered by the date in the document** (the directory listing date
   is used only when the document has none, and the UI marks it with †).
-- **Status** is the highest maturity reached. The "current edition" is the latest
-  errata, else Final, else Implementer's Draft. A spec is flagged *in progress* when
-  drafts have been published after that edition (e.g. errata work after a Final).
+- **Status** is the most advanced stage reached: Final, Implementer's Draft or Draft.
+  Only Implementer's Drafts and Finals have been approved by the Foundation membership;
+  a Draft is a working group draft.
+- **Latest approved** is the most recent approved document: the latest errata set
+  of a Final, else the Final, else the latest Implementer's Draft.
+- **Drafts after …** flags a spec with a draft dated after its latest approved
+  document. The documents don't say what such a draft is for (errata, a revision or
+  the next approval step), so the dashboard doesn't either. The headline counts only
+  specs whose newer draft is from the last 12 months.
+- A new version (e.g. 1.1 after 1.0) has its own filename, so it is a separate spec.
 - **Renamed specs are one entry.** A spec published under several filenames (e.g.
   `fapi-2_0-baseline` → `fapi-2_0-security-profile` → `fapi-security-profile-2_0`) is merged
   into its newest name, with one continuous Draft → ID → Final history. Evidence: a

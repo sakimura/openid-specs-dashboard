@@ -108,7 +108,8 @@ def find_issues(specs):
                 "current": True,
             })
 
-    # Spellings of the same WG in the current editions of live specs.
+    # Spellings of the same WG in the latest approved document of each live spec, or the
+    # latest draft if none has been approved.
     spellings = collections.defaultdict(lambda: collections.defaultdict(list))
     for s in live:
         rev = next((r for r in s["revisions"] if r["file"] == (s["milestone"] or s["latest"])), None)
@@ -269,7 +270,8 @@ HEADINGS = {
                 "Latest revision is %s or later and has no workgroup field. Add `workgroup` to the xml2rfc front matter "
                 "(or `<dd class=\"workgroup\">`)." % ACTIVE_SINCE[:4]),
     "naming": ("Inconsistent working group names (harmonise)",
-               "The same WG is spelled differently in the `workgroup` header field of current editions. "
+               "The same WG is spelled differently in the `workgroup` header field across specs (each spec's latest "
+               "approved document, or its latest draft if none has been approved). "
                "(IANA \"Change Controller\" entries are not listed: those record the registrant.)"),
     "other": ("Other metadata", "Dates missing from documents and probable author-name typos."),
     "historical": ("Working group not stated — historical specs (low priority)",
@@ -310,7 +312,7 @@ def render_markdown(issues, generated, overrides):
             if i["key"] in overrides:
                 name += " **(overridden)**"
             files = _files(i["files"])
-            note = i["detail"] + (" Affects the current edition." if i.get("current") and sev in ("error", "check") else "")
+            note = i["detail"] + (" Affects the latest approved document, or the latest draft if none has been approved." if i.get("current") and sev in ("error", "check") else "")
             lines.append("| %s | %s | %s | %s | %s |" % (name, files, i["found"], i["expected"], note))
     lines.append("")
     return "\n".join(lines)
