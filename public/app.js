@@ -15,14 +15,21 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   const kindColor = (k) => `var(${KIND_VAR[k]})`;
-  const specUrl = (file, ext = "html") => SPECS_BASE + file + "." + ext;
+  const specUrl = (file, ext = "html") => SPECS_BASE + encodeURIComponent(file) + "." + encodeURIComponent(ext);
+  // specs.json is built from documents we do not control: check every field that
+  // ends up in a URL, class name or markup before rendering.
+  const SAFE_FILE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+  const ISO_DATE = /^\d{4}(-\d{2}(-\d{2})?)?$/;
+  const FORMATS = new Set(["html", "txt", "xml", "md", "pdf"]);
+  const SEVERITIES = new Set(["error", "check", "rename", "stub", "missing", "naming", "other", "historical"]);
+  const SORTS = new Set(["updated", "title", "workgroup", "status"]);
 
   const state = { q: "", status: "", wg: "", active: false, superseded: false, sort: "updated", dir: "desc", open: null };
   let DATA = null, SPECS = [], NOW = new Date();
 
   // ---------------------------------------------------------------- utilities
   function fmtDate(d) {
-    if (!d) return "—";
+    if (!d || !ISO_DATE.test(d)) return "—";
     const [y, m, day] = d.split("-");
     if (!m) return y;
     return (day ? +day + " " : "") + MONTHS[+m - 1] + " " + y;
@@ -46,6 +53,46 @@
     return names.slice(0, n).join(", ") + (names.length > n ? ` +${names.length - n}` : "");
   }
   function rev(spec, file) { return spec.revisions.find((r) => r.file === file) || null; }
+
+  // ---------------------------------------------------------------- validate
+  const okDate = (d) => (typeof d === "string" && ISO_DATE.test(d) ? d : null);
+  const okFile = (f) => typeof f === "string" && SAFE_FILE.test(f);
+  const okText = (t) => (t == null ? t : String(t));
+  function cleanAuthors(list) {
+    return (Array.isArray(list) ? list : []).map((a) => ({ name: String(a && a.name || ""), org: okText(a && a.org) }));
+  }
+  function cleanRevision(r) {
+    if (!r || !okFile(r.file) || !KINDS.includes(r.kind)) return null;
+    return Object.assign({}, r, {
+      number: r.number != null && /^[\d-]+$/.test(r.number) ? r.number : null,
+      label: String(r.label || r.file), title: okText(r.title),
+      date: okDate(r.date), listed: okDate(r.listed),
+      formats: (Array.isArray(r.formats) ? r.formats : []).filter((f) => FORMATS.has(f)),
+      authors: cleanAuthors(r.authors),
+    });
+  }
+  function cleanSpec(s) {
+    if (!s || !okFile(s.key) || !(s.status in STATUS_RANK)) return null;
+    const revisions = (Array.isArray(s.revisions) ? s.revisions : []).map(cleanRevision).filter(Boolean);
+    const files = new Set(revisions.map((r) => r.file));
+    return Object.assign({}, s, {
+      title: okText(s.title), workgroup: okText(s.workgroup), revisions,
+      latest: files.has(s.latest) ? s.latest : null, milestone: files.has(s.milestone) ? s.milestone : null,
+      current_url: okFile(s.current_url) ? s.current_url : null,
+      updated: okDate(s.updated), authors: cleanAuthors(s.authors),
+      counts: Object.fromEntries(KINDS.map((k) => [k, Math.max(0, Number(s.counts && s.counts[k]) || 0)])),
+      former_names: Array.isArray(s.former_names) && s.former_names.some((f) => f && okFile(f.key))
+        ? s.former_names.filter((f) => f && okFile(f.key)).map((f) => Object.assign({}, f, { how: String(f.how || "") })) : undefined,
+      issues: (Array.isArray(s.issues) ? s.issues : []).filter((i) => i && SEVERITIES.has(i.severity))
+        .map((i) => Object.assign({}, i, { files: (Array.isArray(i.files) ? i.files : []).filter(okFile) })),
+      redirect: s.redirect && typeof s.redirect === "object"
+        ? Object.assign({}, s.redirect, { target: okFile(s.redirect.target) ? s.redirect.target : null, reason: String(s.redirect.reason || "Obsolete Specification") }) : s.redirect,
+    });
+  }
+  function validate(data) {
+    if (!data || !Array.isArray(data.specs) || !okDate(String(data.generated || "").slice(0, 10))) throw new Error("unexpected data format");
+    return { generated: data.generated, source: data.source, specs: data.specs.map(cleanSpec).filter(Boolean) };
+  }
 
   // ---------------------------------------------------------------- derive
   function prepare(data) {
@@ -98,7 +145,7 @@
       const on = t.key === "active" ? state.active : (t.key === state.status && !state.active && (t.key || !state.status));
       return `<button type="button" class="kpi${on && t.key !== "" ? " on" : ""}" data-kpi="${t.key}">
         <div class="kpi-value">${t.value}</div>
-        <div class="kpi-label">${t.color ? `<span class="swatch" style="background:${kindColor(t.color)}"></span>` : ""}${esc(t.label)}</div>
+        <div class="kpi-label">${t.color ? `<span class="swatch k-${t.color}"></span>` : ""}${esc(t.label)}</div>
         <div class="kpi-note">${esc(t.note)}</div></button>`;
     }).join("");
   }
@@ -116,7 +163,7 @@
 
   // ---------------------------------------------------------------- charts
   function legend(el, kinds) {
-    el.innerHTML = kinds.map((k) => `<span><i class="swatch" style="background:${kindColor(k)}"></i>${KIND_NAME[k]}</span>`).join("");
+    el.innerHTML = kinds.map((k) => `<span><i class="swatch k-${k}"></i>${KIND_NAME[k]}</span>`).join("");
   }
 
   function niceMax(v) {
@@ -220,7 +267,7 @@
   function showTip(e, title, rows) {
     const tt = $("#tooltip");
     tt.innerHTML = `<div class="tt-title">${esc(title)}</div>` + rows.map(([l, v, k]) =>
-      `<div class="tt-row"><span>${k ? `<i class="swatch" style="background:${kindColor(k)}"></i>` : ""}${esc(l)}</span><strong>${esc(v)}</strong></div>`).join("");
+      `<div class="tt-row"><span>${k ? `<i class="swatch k-${k}"></i>` : ""}${esc(l)}</span><strong>${esc(v)}</strong></div>`).join("");
     tt.hidden = false;
     const r = tt.getBoundingClientRect();
     let x = e.clientX + 14, y = e.clientY + 14;
@@ -385,8 +432,10 @@
     state.wg = p.get("wg") || "";
     state.active = p.get("active") === "1";
     state.superseded = p.get("all") === "1";
-    const [sort, dir] = (p.get("sort") || "updated:desc").split(":");
-    state.sort = sort; state.dir = dir || "desc";
+    const [sort, dir] = (p.get("sort") || "").split(":");
+    state.sort = SORTS.has(sort) ? sort : "updated";
+    state.dir = dir === "asc" || dir === "desc" ? dir : state.sort === "title" || state.sort === "workgroup" ? "asc" : "desc";
+    if (!(state.status in STATUS_RANK)) state.status = "";
     state.open = p.get("spec");
   }
   function syncControls() {
@@ -407,7 +456,8 @@
   // ---------------------------------------------------------------- CSV
   function exportCsv() {
     const cols = ["title", "key", "working_group", "status", "current_edition", "current_edition_date", "latest_revision", "latest_revision_date", "editors", "url"];
-    const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    // A leading = + - @ (or tab/CR) makes spreadsheets evaluate the cell; prefix ' so it stays text.
+    const q = (v) => { let t = String(v ?? ""); if (/^[=+\-@\t\r]/.test(t)) t = "'" + t; return `"${t.replace(/"/g, '""')}"`; };
     const lines = [cols.join(",")].concat(filtered().map((s) => [
       s.title, s.key, s.wg, s.status_label + (s.counts.errata ? " (errata " + s.milestoneRev.number + ")" : ""),
       s.milestoneRev && s.milestoneRev.file, s.milestoneRev && (s.milestoneRev.date || s.milestoneRev.listed),
@@ -461,7 +511,7 @@
     try {
       const res = await fetch(DATA_URL, { cache: "no-cache" });
       if (!res.ok) throw new Error(res.status + " " + res.statusText);
-      DATA = await res.json();
+      DATA = validate(await res.json());
     } catch (err) {
       $("#generated").textContent = "Could not load data";
       $("#specs tbody").innerHTML = `<tr><td colspan="7" class="empty">Failed to load ${esc(DATA_URL)}: ${esc(err.message)}</td></tr>`;

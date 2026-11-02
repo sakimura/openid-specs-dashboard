@@ -1,5 +1,10 @@
 """Unit tests for the parser: python3 -m unittest discover -s crawler"""
+import io
+import os
+import tempfile
 import unittest
+import urllib.request
+from unittest import mock
 
 import build_data as b
 
@@ -109,6 +114,68 @@ class Renames(unittest.TestCase):
         self.assertEqual(p["openid-connect-4-verifiable-credential-issuance-1_0"], "openid-4-verifiable-credential-issuance-1_0")
         self.assertEqual(p["openid-caep-specification-1_0"], "openid-caep-1_0")
         self.assertNotIn("openid-federation-1_0", p)
+
+
+def _row(href):
+    return '<tr><td><a href="%s">x</a></td><td align="right">2025-01-01 10:00  </td><td align="right"> 12K</td></tr>' % href
+
+
+class UntrustedListing(unittest.TestCase):
+    def test_real_names_accepted(self):
+        names = ["openid-connect-core-1_0-final.html", "fapi-2_0-attacker-model-ID2.html",
+                 "openid-heart-oauth2-1_0-2017-05-31.html", "draft-jones-json-web-token-07.txt"]
+        self.assertEqual(sorted(b.parse_listing("".join(_row(n) for n in names))), sorted(names))
+
+    def test_path_names_rejected(self):
+        hostile = ["..%2F..%2Fetc%2Fpasswd", "a/../../x.html", "%2Ftmp%2Fx.html", "..", ".hidden.html",
+                   "x%00.html", "a%5C..%5Cb.html", "&#46;&#46;%2Fx.html", 'x" onmouseover="alert(1).html',
+                   "x%22%3E%3Cimg%20src%3Dx%3E.html"]
+        self.assertEqual(b.parse_listing("".join(_row(n) for n in hostile)), {})
+
+    def test_cache_path_contained(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(b.cache_path(d, "a-1_0.html"), os.path.join(os.path.realpath(d), "a-1_0.html"))
+            for bad in ["../x.html", "/tmp/x.html", "a/b.html", "..", ""]:
+                with self.assertRaises(ValueError):
+                    b.cache_path(d, bad)
+            os.symlink("/etc/hosts", os.path.join(d, "link.html"))
+            with self.assertRaises(ValueError):
+                b.cache_path(d, "link.html")
+
+
+class _Resp(io.BytesIO):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        self.close()
+
+
+class Fetch(unittest.TestCase):
+    def test_only_openid_net_https(self):
+        for url in ["http://openid.net/specs/", "https://evil.example/specs/", "https://openid.net.evil.example/",
+                    "file:///etc/passwd", "https://openid.net:8443/specs/"]:
+            with self.assertRaises(b.FetchError):
+                b.http_get(url)
+
+    def test_redirect_off_host_refused(self):
+        h = b._SameHostRedirects()
+        req = urllib.request.Request(b.BASE_URL)
+        with self.assertRaises(b.FetchError):
+            h.redirect_request(req, None, 302, "Found", {}, "https://evil.example/x.html")
+        self.assertIsNotNone(h.redirect_request(req, None, 302, "Found", {}, "https://openid.net/specs/x.html"))
+
+    def test_size_cap(self):
+        with mock.patch.object(b._opener, "open", return_value=_Resp(b"x" * 101)):
+            with self.assertRaises(b.FetchError):
+                b.http_get(b.BASE_URL, max_bytes=100)
+        with mock.patch.object(b._opener, "open", return_value=_Resp(b"x" * 100)):
+            self.assertEqual(len(b.http_get(b.BASE_URL, max_bytes=100)), 100)
+
+    def test_listing_entry_cap(self):
+        with mock.patch.object(b, "MAX_LISTING_ENTRIES", 3):
+            with self.assertRaises(b.FetchError):
+                b.parse_listing("".join(_row("s-%d.html" % i) for i in range(5)))
 
 
 if __name__ == "__main__":

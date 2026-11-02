@@ -3,31 +3,38 @@ name: Crawl specs and deploy dashboard
 on:
   push:
     branches: [main]
+  pull_request:        # tests and a trial crawl only; nothing is deployed or committed
   schedule:
     - cron: "17 3 * * *"   # daily, 03:17 UTC
   workflow_dispatch:
 
+# Read-only by default. Each job below asks only for what it needs, so the job that
+# parses untrusted HTML from openid.net cannot push to the repo or deploy.
 permissions:
-  contents: write   # commit the updated source-fixes report
-  pages: write
-  id-token: write
+  contents: read
 
 concurrency:
-  group: pages
+  group: pages-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
   cancel-in-progress: false
 
+# Actions are pinned to full commit SHAs (tag in the comment).
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
 
       # Keep downloaded spec HTML between runs so only changed files are fetched.
-      - uses: actions/cache@v4
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .cache
           key: specs-cache-${{ github.run_id }}
@@ -38,6 +45,34 @@ jobs:
 
       - name: Crawl openid.net/specs
         run: python crawler/build_data.py
+
+      - name: Upload source-fixes report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: source-fixes-report
+          path: reports/source-fixes.md
+          retention-days: 7
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: public
+
+  # Commits the report produced by the crawl. Runs no crawler code; it only copies
+  # one Markdown file into the repository.
+  report:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: source-fixes-report
+          path: reports
 
       - name: Commit source-fixes report if it changed
         run: |
@@ -51,18 +86,17 @@ jobs:
           git commit -m "Update source-fixes report"
           git push
 
-      - uses: actions/configure-pages@v5
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: public
-
   deploy:
     needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

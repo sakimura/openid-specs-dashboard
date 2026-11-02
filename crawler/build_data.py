@@ -40,10 +40,49 @@ LISTING_ROW = re.compile(
 )
 
 
-def http_get(url, timeout=60):
+# The listing and the documents are untrusted input: names become cache paths and
+# links in the dashboard, so only plain basenames are accepted (every real spec
+# filename matches), and fetches are capped and pinned to openid.net over HTTPS.
+SAFE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,199}")
+ALLOWED_HOST = urllib.parse.urlsplit(BASE_URL).hostname
+MAX_LISTING_BYTES = 8 << 20
+MAX_DOC_BYTES = 16 << 20
+MAX_LISTING_ENTRIES = 20000
+MIN_SPECS = 50  # fewer means the listing or parser broke; keep the last good data
+
+
+class FetchError(Exception):
+    pass
+
+
+def _allowed_url(url):
+    u = urllib.parse.urlsplit(url)
+    return u.scheme == "https" and u.hostname == ALLOWED_HOST and u.port in (None, 443)
+
+
+class _SameHostRedirects(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not _allowed_url(newurl):
+            raise FetchError("redirect to %s refused" % newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_opener = urllib.request.build_opener(_SameHostRedirects)
+
+
+def http_get(url, timeout=60, max_bytes=MAX_DOC_BYTES):
+    if not _allowed_url(url):
+        raise FetchError("refusing to fetch %s" % url)
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return resp.read()
+    with _opener.open(req, timeout=timeout) as resp:
+        data = resp.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        raise FetchError("%s is larger than %d bytes" % (url, max_bytes))
+    return data
+
+
+def safe_name(name):
+    return bool(SAFE_NAME.fullmatch(name))
 
 
 def parse_listing(text):
@@ -51,7 +90,12 @@ def parse_listing(text):
     files = {}
     for name, modified, size in LISTING_ROW.findall(text):
         name = urllib.parse.unquote(html.unescape(name))
+        if not safe_name(name):
+            print("  ! skipping unexpected filename %r" % name, file=sys.stderr)
+            continue
         files[name] = {"modified": modified.replace(" ", "T"), "size": size}
+        if len(files) > MAX_LISTING_ENTRIES:
+            raise FetchError("listing has more than %d entries" % MAX_LISTING_ENTRIES)
     return files
 
 
@@ -460,6 +504,17 @@ def canonical_wg(raw):
 # ---------------------------------------------------------------------------
 
 
+def cache_path(cache_dir, name):
+    """Path of a listed file in the cache; refuses anything that could leave it."""
+    if not safe_name(name):
+        raise ValueError("unsafe filename %r" % name)
+    root = os.path.realpath(cache_dir)
+    path = os.path.join(root, name)
+    if os.path.dirname(path) != root or os.path.islink(path):
+        raise ValueError("refusing cache path %r" % name)
+    return path
+
+
 def fetch_all(names, cache_dir, listing, workers=8, offline=False):
     os.makedirs(cache_dir, exist_ok=True)
     stamp_path = os.path.join(cache_dir, ".stamps.json")
@@ -469,7 +524,7 @@ def fetch_all(names, cache_dir, listing, workers=8, offline=False):
             stamps = json.load(f)
 
     def one(name):
-        path = os.path.join(cache_dir, name)
+        path = cache_path(cache_dir, name)
         fresh = os.path.exists(path) and stamps.get(name) == listing.get(name, {}).get("modified")
         if offline or fresh:
             return name, os.path.exists(path)
@@ -478,8 +533,10 @@ def fetch_all(names, cache_dir, listing, workers=8, offline=False):
         except Exception as e:  # keep going; stale cache is better than nothing
             print("  ! %s: %s" % (name, e), file=sys.stderr)
             return name, os.path.exists(path)
-        with open(path, "wb") as f:
+        tmp = path + ".part"
+        with open(tmp, "wb") as f:
             f.write(data)
+        os.replace(tmp, path)
         stamps[name] = listing.get(name, {}).get("modified")
         return name, True
 
@@ -524,7 +581,7 @@ def build(listing, cache_dir, renamed_to=None):
                 specs[base].setdefault("extras", []).append(stem)
 
     def load(stem):
-        path = os.path.join(cache_dir, stem + ".html")
+        path = cache_path(cache_dir, stem + ".html")
         if not os.path.exists(path):
             return {}
         with open(path, encoding="utf-8", errors="replace") as f:
@@ -881,7 +938,7 @@ def main():
         with open(listing_path, encoding="utf-8") as f:
             text = f.read()
     else:
-        text = http_get(BASE_URL).decode("utf-8", "replace")
+        text = http_get(BASE_URL, max_bytes=MAX_LISTING_BYTES).decode("utf-8", "replace")
         with open(listing_path, "w", encoding="utf-8") as f:
             f.write(text)
     listing = parse_listing(text)
@@ -892,6 +949,8 @@ def main():
 
     overrides = load_overrides(args.overrides)
     specs = build(listing, args.cache, renames_from(overrides))
+    if len(specs) < MIN_SPECS:
+        sys.exit("only %d specs found (expected at least %d); not writing output" % (len(specs), MIN_SPECS))
     generated = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
 
     # Check the documents before overrides are applied, so the report reflects the sources.
@@ -909,8 +968,10 @@ def main():
         "specs": specs,
     }
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
-    with open(args.out, "w", encoding="utf-8") as f:
+    tmp = args.out + ".part"
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+    os.replace(tmp, args.out)
     print("wrote %d specs -> %s" % (len(specs), args.out), file=sys.stderr)
 
 
