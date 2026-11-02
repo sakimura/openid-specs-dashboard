@@ -1,7 +1,7 @@
 # OpenID Specifications Dashboard (prototype)
 
 A dashboard of every specification published at <https://openid.net/specs/>:
-approval level (Draft → Implementer's Draft → Final, with any errata sets), the latest
+specification status (Draft → Implementer's Draft → Final, with any errata sets), the latest
 approved document, the latest revision, the working group, the editors, and the full revision history.
 
 Two parts, no build step:
@@ -37,7 +37,9 @@ Then open <http://localhost:8765>. The first crawl downloads all ~950 HTML files
   the Authors' Addresses section.
 - **Revisions are ordered by the date in the document** (the directory listing date
   is used only when the document has none, and the UI marks it with †).
-- **Status** is the highest approval level reached: Final, Implementer's Draft or Draft.
+- **Status** is the most advanced stage reached: Final, Implementer's Draft or Draft.
+  Only Implementer's Drafts and Finals have been approved by the Foundation membership;
+  a Draft is a working group draft.
 - **Latest approved** is the most recent approved document: the latest errata set
   of a Final, else the Final, else the latest Implementer's Draft.
 - **Drafts after …** flags a spec with a draft dated after its latest approved

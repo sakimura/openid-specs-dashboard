@@ -210,7 +210,7 @@
     const total = (c) => KINDS.reduce((a, k) => a + c[k], 0);
     const peak = all.reduce((a, d) => (total(d.c) > total(a.c) ? d : a));
     const recent = all.filter((d) => d.y >= NOW.getFullYear() - 4).reduce((a, d) => a + d.c.final + d.c.errata, 0);
-    $("#activity-title").textContent = `Activity peaked in ${peak.y} with ${total(peak.c)} revisions; ${recent} Finals and errata sets approved since ${NOW.getFullYear() - 4}`;
+    $("#activity-title").textContent = `Activity peaked in ${peak.y} with ${total(peak.c)} revisions; ${recent} Final and errata documents dated or listed since ${NOW.getFullYear() - 4}`;
     const W = Math.max(el.clientWidth, 320), H = 240, m = { t: 10, r: 8, b: 26, l: 34 };
     const iw = W - m.l - m.r, ih = H - m.t - m.b;
     const max = niceMax(Math.max(...all.map((d) => total(d.c))));
