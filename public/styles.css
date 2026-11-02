@@ -68,6 +68,10 @@ button, input, select { font: inherit; color: inherit; }
 .kpi-label { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: var(--fs-body); font-weight: 700; }
 .kpi-note { color: var(--muted); font-size: var(--fs-caption); margin-top: 2px; }
 .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex: none; }
+.swatch.k-draft { background: var(--m-draft); }
+.swatch.k-implementers { background: var(--m-id); }
+.swatch.k-final { background: var(--m-final); }
+.swatch.k-errata { background: var(--m-errata); }
 
 /* Cards & charts ---------------------------------------------------------------- */
 .card { background: var(--card); border: 1px solid var(--rule); border-radius: var(--radius); }
