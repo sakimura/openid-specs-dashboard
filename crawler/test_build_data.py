@@ -178,6 +178,11 @@ class Fetch(unittest.TestCase):
                 b.parse_listing("".join(_row("s-%d.html" % i) for i in range(5)))
 
 
+def _specs(n, revs=2, prefix="spec"):
+    return [{"key": "%s-%d" % (prefix, i), "revisions": [{"file": "%s-%d-%02d" % (prefix, i, j)} for j in range(revs)]}
+            for i in range(n)]
+
+
 class CrawlLimits(unittest.TestCase):
     def test_budget_files_and_bytes(self):
         bud = b.Budget(max_files=2, max_bytes=10)
@@ -201,14 +206,29 @@ class CrawlLimits(unittest.TestCase):
             b.check_fetch({"fetched": 100, "failed": 6, "cached": 0, "missing": 0})
 
     def test_completeness_against_last_good(self):
-        specs = [{"revisions": [1, 2]} for _ in range(60)]
-        self.assertEqual(b.check_complete(specs, {"specs": 60, "revisions": 120}), {"specs": 60, "revisions": 120})
+        specs = _specs(60)
+        self.assertEqual({k: v for k, v in b.check_complete(specs, {"specs": 60, "revisions": 120}).items()
+                          if k in ("specs", "revisions")}, {"specs": 60, "revisions": 120})
         with self.assertRaises(b.FetchError):
             b.check_complete(specs[:10], {})
         with self.assertRaises(b.FetchError):
             b.check_complete(specs[:53], {"specs": 60, "revisions": 106})
         with self.assertRaises(b.FetchError):
-            b.check_complete([{"revisions": [1]} for _ in range(60)], {"specs": 60, "revisions": 120})
+            b.check_complete(_specs(60, revs=1), {"specs": 60, "revisions": 120})
+
+    def test_same_totals_but_different_items_rejected(self):
+        last = b.check_complete(_specs(60), {})
+        swapped = _specs(55) + _specs(5, prefix="other")
+        with mock.patch("sys.stderr"), self.assertRaises(b.FetchError):
+            b.check_complete(swapped, last)
+        # One or two withdrawn items is normal.
+        with mock.patch("sys.stderr"):
+            b.check_complete(_specs(59) + _specs(1, prefix="other"), last)
+        # A rename keeps the old name in former_names, so it is not a loss.
+        renamed = _specs(60)
+        renamed[0] = dict(renamed[0], key="spec-new", former_names=[{"key": "spec-0"}])
+        with mock.patch("sys.stderr"):
+            b.check_complete(renamed, last)
 
 
 class SafeCacheWrites(unittest.TestCase):

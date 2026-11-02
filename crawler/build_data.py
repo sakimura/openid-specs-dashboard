@@ -55,6 +55,8 @@ MAX_TOTAL_BYTES = 1 << 30       # bytes downloaded in one run
 MAX_FAILURE_RATIO = 0.05        # failed downloads, as a share of those attempted
 MIN_SPECS = 50                  # fewer means the listing or parser broke
 MIN_SHARE_OF_LAST_GOOD = 0.9    # specs and revisions, compared with the last good build
+MAX_VANISHED = 0.02             # share of known spec names or revision files that may disappear,
+MIN_VANISHED = 3                # but at least this many, so small sets tolerate a withdrawal
 
 
 class FetchError(Exception):
@@ -613,13 +615,31 @@ def check_fetch(stats):
 
 
 def check_complete(specs, last_good):
-    """Raise when this build lost a large share of specs or revisions."""
-    now = {"specs": len(specs), "revisions": sum(len(s["revisions"]) for s in specs)}
+    """Raise when this build lost a large share of specs or revisions.
+
+    Besides the totals, the spec names and revision files themselves are compared with
+    the last good build: published revisions are never withdrawn from openid.net, so more
+    than a few vanishing (even if others appear) means the source or the parser is wrong.
+    A renamed spec keeps its old name in former_names, so a rename is not a loss."""
+    names = sorted({s["key"] for s in specs} | {f["key"] for s in specs for f in s.get("former_names") or []})
+    files = sorted({r["file"] for s in specs for r in s["revisions"]})
+    now = {"specs": len(specs), "revisions": sum(len(s["revisions"]) for s in specs), "names": names, "files": files}
     if now["specs"] < MIN_SPECS:
         raise FetchError("only %d specs found (expected at least %d)" % (now["specs"], MIN_SPECS))
     for k in ("specs", "revisions"):
-        if last_good.get(k) and now[k] < MIN_SHARE_OF_LAST_GOOD * last_good[k]:
+        if isinstance(last_good.get(k), int) and now[k] < MIN_SHARE_OF_LAST_GOOD * last_good[k]:
             raise FetchError("%s dropped from %d to %d since the last good build" % (k, last_good[k], now[k]))
+    for k in ("names", "files"):
+        before = last_good.get(k)
+        if not isinstance(before, list):
+            continue
+        gone = sorted(set(before) - set(now[k]))
+        added = sorted(set(now[k]) - set(before))
+        if gone or added:
+            print("%s: %d new, %d gone%s" % (k, len(added), len(gone), (": " + ", ".join(gone[:10])) if gone else ""),
+                  file=sys.stderr)
+        if len(gone) > max(MIN_VANISHED, MAX_VANISHED * len(before)):
+            raise FetchError("%d %s from the last good build are gone (e.g. %s)" % (len(gone), k, ", ".join(gone[:5])))
     return now
 
 

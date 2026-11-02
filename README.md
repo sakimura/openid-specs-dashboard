@@ -71,7 +71,8 @@ the detail panel so it is always clear what came from the document and what did 
 
 ## Source fixes report
 
-Every crawl also writes [`reports/source-fixes.md`](reports/source-fixes.md): metadata
+Every crawl also writes `reports/source-fixes.md`
+([latest](https://github.com/sakimura/openid-specs-dashboard/blob/reports/reports/source-fixes.md)): metadata
 errors in the published documents themselves, for spec editors to fix at the source —
 wrong or missing working group, inconsistent WG names, renames missing a redirect page,
 probable author-name typos. An entry disappears once a corrected revision is published;
@@ -91,8 +92,17 @@ places it top right.
 `.github/workflows/pages.yml` runs the parser tests and the crawler daily (03:17 UTC),
 on every push to `main`, and on demand (Actions → Run workflow). It then deploys
 `public/` to GitHub Pages. When the source-fixes report changes, the workflow commits
-it back to the repository, so its history shows what has been fixed.
-`public/data/` is generated and is not committed; run the crawler before previewing locally.
+it to the `reports` branch, which holds only the report, so that branch's history shows
+what has been fixed. `public/data/` and `reports/` are generated and not committed on
+`main`; run the crawler before previewing locally.
+
+`main` is protected by the "Protect main" ruleset (active since 2 Nov 2026):
+- changes arrive only through pull requests (no approval is required, so a maintainer
+  can merge their own);
+- the `build` check (tests and a trial crawl), reported by GitHub Actions, must pass
+  before merging;
+- force pushes and deleting the branch are blocked;
+- nobody can bypass these rules, repository admins included.
 
 ## Security
 
@@ -106,7 +116,9 @@ The crawler and the page treat everything from openid.net/specs as untrusted inp
   temporary files and read without following symlinks.
 - **The crawl fails, and writes nothing, when** more than 5% of downloads fail, fewer
   than 50 specs come out, or specs or revisions drop by more than 10% since the last good
-  build (`.cache/specs/.last-good.json`). A failed run deploys nothing, so the last good
+  build (`.cache/specs/.last-good.json`), or more of that build's spec names or revision
+  files disappear than 2% of them or 3, whichever is larger. The floor of 3 lets a small
+  set lose one or two items (a withdrawn draft) without failing. A failed run deploys nothing, so the last good
   site stays up.
 - **Page:** `specs.json` is checked on load. Only known fields are copied into fresh
   objects. File names, formats, dates, statuses and severities must match expected values,
@@ -138,7 +150,7 @@ python3 -m unittest discover -s crawler
 ```
 
 ```bash
-node --test tests/
+node --test tests/*.test.mjs
 ```
 
 The second runs `public/app.js` under Node against hostile data: prototype keys,
