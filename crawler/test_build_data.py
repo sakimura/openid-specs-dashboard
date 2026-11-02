@@ -255,12 +255,13 @@ class SafeCacheWrites(unittest.TestCase):
 class MovedTo(unittest.TestCase):
     def test_clean(self):
         self.assertEqual(b.clean_moved_to({"body": "IETF", "via": "draft-ietf-oauth-json-web-token", "rfc": 7519,
-                                           "rfc_title": "JSON Web Token (JWT)"}),
+                                           "rfc_title": "JSON Web Token (JWT)", "rfc_date": "2015-05"}),
                          {"body": "IETF", "via": "draft-ietf-oauth-json-web-token", "rfc": 7519,
-                          "rfc_title": "JSON Web Token (JWT)"})
+                          "rfc_title": "JSON Web Token (JWT)", "rfc_date": "2015-05"})
         self.assertEqual(b.clean_moved_to({"body": "IETF", "note": "Expired."}), {"body": "IETF", "note": "Expired."})
         for bad in [None, {}, {"body": ""}, {"body": "IETF", "rfc": "7519"}, {"body": "IETF", "rfc": True},
-                    {"body": "IETF", "via": "javascript:alert(1)"}, {"body": "IETF", "via": "../x"}]:
+                    {"body": "IETF", "via": "javascript:alert(1)"}, {"body": "IETF", "via": "../x"},
+                    {"body": "IETF", "rfc": 7519, "rfc_date": "May 2015"}]:
             with self.assertRaises(ValueError):
                 b.clean_moved_to(bad)
 

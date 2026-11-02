@@ -91,7 +91,7 @@
       body: m.body.trim(),
       via: typeof m.via === "string" && /^draft-[a-z0-9-]+$/.test(m.via) ? m.via : null,
       rfc: Number.isInteger(m.rfc) && m.rfc > 0 && m.rfc < 100000 ? m.rfc : null,
-      rfc_title: str(m.rfc_title), note: str(m.note),
+      rfc_title: str(m.rfc_title), rfc_date: okDate(m.rfc_date), note: str(m.note),
     };
   }
   const rfcUrl = (n) => "https://www.rfc-editor.org/rfc/rfc" + n;
@@ -322,6 +322,8 @@
 
   // ---------------------------------------------------------------- table
   function statusBadge(s) {
+    // A spec continued elsewhere: its OIDF stage ("Draft") would read as unfinished work.
+    if (s.moved_to) return `<span class="badge renamed">Moved to ${esc(s.moved_to.body)}</span>`;
     if (s.redirect && !s.milestoneRev && !s.latestRev) return `<span class="badge renamed">${esc(s.redirect.reason)}</span>`;
     const k = s.status === "final" && s.counts.errata ? "errata" : s.status;
     let label = s.status_label;
@@ -332,6 +334,7 @@
   function track(s) {
     // Three maturity stages. Errata corrects a Final; it is not a further stage, so it
     // appears in the chip label ("Final · Errata 2"), not as a fourth dot.
+    if (s.moved_to) return "";
     const lvl = { draft: 1, implementers: 2, final: 3 }[s.status];
     return `<div class="track" title="Draft · Implementer's Draft · Final" aria-hidden="true">${["draft", "implementers", "final"].map((k, i) =>
       `${i ? "<b></b>" : ""}<i class="${i < lvl ? "on" : ""}"></i>`).join("")}</div>`;
@@ -344,8 +347,6 @@
   function flags(s) {
     const f = [];
     if (s.redirect) f.push(`<span class="badge renamed">${esc(s.redirect.reason.replace(/ ?Specification ?/, "")) || "Obsolete"}</span>`);
-    if (s.moved_to) f.push(`<span class="badge renamed">Moved to ${esc(s.moved_to.body)}</span>` +
-      (s.moved_to.rfc ? `<a class="flag" href="${rfcUrl(s.moved_to.rfc)}" target="_blank" rel="noopener" data-stop>RFC ${s.moved_to.rfc}</a>` : ""));
     if (s.issues && s.issues.some((i) => i.severity === "error")) f.push(`<span class="flag flag-issue" title="The published document has a metadata error; see details">Metadata error in source</span>`);
     if (s.newerDraft) f.push(`<span class="flag" title="A draft has been published after the latest approved document. The dashboard cannot tell whether it is errata, a revision or the next approval step.">Drafts after ${esc(approvedShort(s.milestoneRev))}</span>`);
     return f.length ? `<div class="flags">${f.join("")}</div>` : "";
@@ -369,6 +370,11 @@
     return `<span class="formerly">Formerly ${s.former_names.map((f) =>
       f.title && f.title !== s.title ? `${esc(f.title)} (<span class="mono">${esc(f.key)}</span>)` : `<span class="mono">${esc(f.key)}</span>`).join(", ")}</span>`;
   }
+  // An RFC approved at the IETF stands in for "latest approved" once a spec has moved there.
+  function rfcCell(m) {
+    if (!m.rfc) return `<span class="spec-key">None (${esc(m.body)})</span>`;
+    return `<a class="rev-link" href="${rfcUrl(m.rfc)}" target="_blank" rel="noopener" data-stop>RFC ${m.rfc}</a><span class="rev-date">${esc(m.body)}${m.rfc_date ? ", " + fmtDate(m.rfc_date) : ""}</span>`;
+  }
   function revCell(r) {
     if (!r) return `<span class="spec-key">—</span>`;
     return `<a class="rev-link" href="${specUrl(r.file)}" target="_blank" rel="noopener" data-stop>${esc(r.label)}</a><span class="rev-date">${fmtDate(r.date || r.listed)}</span>`;
@@ -387,7 +393,7 @@
           <span class="spec-key mono">${esc(s.key)}</span>${formerLine(s)}</td>
         <td class="td-wg" data-label="Working group">${esc(s.wg)}${wgMark(s)}</td>
         <td data-label="Status">${statusBadge(s)}${track(s)}${flags(s)}</td>
-        <td data-label="Latest approved">${revCell(s.milestoneRev)}</td>
+        <td data-label="Latest approved">${s.moved_to && !s.milestoneRev ? rfcCell(s.moved_to) : revCell(s.milestoneRev)}</td>
         <td data-label="Latest revision">${latestDiff || !s.milestoneRev ? revCell(s.latestRev) : `<span class="spec-key">same</span>`}</td>
         <td class="td-date" data-label="Updated">${fmtDate(s.updated)}<span class="rev-date">${relTime(s.updated)}</span></td>
         <td class="td-ed" data-label="Editors">${esc(editorsShort(s.authors))}</td>
@@ -407,6 +413,19 @@
     if (m.rfc) parts.push(`published as <a href="${rfcUrl(m.rfc)}" target="_blank" rel="noopener">RFC ${m.rfc}</a>${m.rfc_title ? ", " + esc(m.rfc_title) : ""}`);
     const s = parts.join(" and ");
     return (s ? s.charAt(0).toUpperCase() + s.slice(1) + ". " : "") + (m.note ? esc(m.note) : "");
+  }
+  // Steps taken at another body, above the OIDF revisions and marked as external.
+  function movedItems(m) {
+    if (!m) return "";
+    const item = (label, date, meta) => `<li class="external"><span class="dot"></span>${label}<span class="t-date">${date}</span>
+      <span class="t-meta">${meta}</span></li>`;
+    let out = "";
+    if (m.rfc) out += item(`<a class="t-label" href="${rfcUrl(m.rfc)}" target="_blank" rel="noopener">RFC ${m.rfc}</a>`,
+      m.rfc_date ? fmtDate(m.rfc_date) : "", `${esc(m.body)}${m.rfc_title ? " · " + esc(m.rfc_title) : ""}`);
+    out += item(`<span class="t-label">Moved to ${esc(m.body)}</span>`, "",
+      m.via ? `Continued as <a class="mono" href="${draftUrl(m.via)}" target="_blank" rel="noopener">${esc(m.via)}</a>`
+        : esc(m.note || "Work continued outside the OpenID Foundation."));
+    return out;
   }
   function openDrawer(key, push = true) {
     const s = SPECS.find((x) => x.key === key);
@@ -430,7 +449,7 @@
         <span class="t-meta"><span class="mono">${esc(r.file)}</span>${fmts}</span></li>`;
     };
     $("#drawer-body").innerHTML = `
-      <div class="kicker">${esc(s.wg)}${s.workgroup_source && s.workgroup_source !== "document" ? ` (${s.workgroup_source === "curated" ? "curated" : "inferred"})` : ""}&nbsp;&nbsp;·&nbsp;&nbsp;${esc(s.status_label)}</div>
+      <div class="kicker">${esc(s.wg)}${s.workgroup_source && s.workgroup_source !== "document" ? ` (${s.workgroup_source === "curated" ? "curated" : "inferred"})` : ""}&nbsp;&nbsp;·&nbsp;&nbsp;${esc(s.moved_to ? "Moved to " + s.moved_to.body : s.status_label)}</div>
       <h2 class="d-title" id="d-title">${esc(s.title || s.key)}</h2>
       <div class="d-badges">${statusBadge(s)}${flags(s).replace(/<\/?div[^>]*>/g, "")}</div>
       ${s.redirect ? `<div class="callout"><span class="callout-label">${esc(s.redirect.reason)}:</span> ${esc((s.redirect.message || "").replace(s.redirect.reason, "").replace(/Your browser should load[^.]*\.\s*/, "").trim())}
@@ -439,7 +458,10 @@
       <dl class="d-grid">
         <dt>Filename stem</dt><dd class="mono">${esc(s.key)}</dd>
         ${s.current_url ? `<dt>Canonical URL</dt><dd><a href="${specUrl(s.current_url)}" target="_blank" rel="noopener">${esc(specUrl(s.current_url))}</a></dd>` : ""}
-        <dt>Latest approved</dt><dd>${m ? `<a href="${specUrl(m.file)}" target="_blank" rel="noopener">${esc(m.label)}</a> · ${fmtDate(m.date || m.listed)}` : "No Implementer's Draft or Final yet"}</dd>
+        <dt>Latest approved</dt><dd>${m ? `<a href="${specUrl(m.file)}" target="_blank" rel="noopener">${esc(m.label)}</a> · ${fmtDate(m.date || m.listed)}`
+          : s.moved_to && s.moved_to.rfc ? `<a href="${rfcUrl(s.moved_to.rfc)}" target="_blank" rel="noopener">RFC ${s.moved_to.rfc}</a>${s.moved_to.rfc_title ? ", " + esc(s.moved_to.rfc_title) : ""} · ${esc(s.moved_to.body)}${s.moved_to.rfc_date ? ", " + fmtDate(s.moved_to.rfc_date) : ""}`
+          : s.moved_to ? `None. Continued at the ${esc(s.moved_to.body)}${s.moved_to.note ? "; see above" : ""}.`
+          : "No Implementer's Draft or Final yet"}</dd>
         <dt>Latest revision</dt><dd>${l ? `<a href="${specUrl(l.file)}" target="_blank" rel="noopener">${esc(l.label)}</a> · ${fmtDate(l.date || l.listed)} <span class="spec-key">(${relTime(l.date || l.listed)})</span>` : "—"}</dd>
         <dt>Revisions</dt><dd>${s.counts.draft} drafts · ${s.counts.implementers} Implementer's Drafts · ${s.counts.final} Final · ${s.counts.errata} errata</dd>
         ${s.workgroup_raw && s.workgroup_raw !== s.wg ? `<dt>WG as stated</dt><dd>${esc(s.workgroup_raw)}</dd>` : ""}
@@ -452,7 +474,7 @@
       <div class="d-section kicker">Editors${m ? ` of ${esc(m.label)}` : ""}</div>
       <div class="authors">${allAuthors.length ? allAuthors.map((a) => `<div class="author"><div>${esc(a.name)}</div>${a.org ? `<div class="org">${esc(a.org)}</div>` : ""}</div>`).join("") : '<span class="spec-key">Not stated</span>'}</div>
       <div class="d-section kicker">Revision history</div>
-      <ol class="timeline">${revs.map(revItem).join("")}</ol>
+      <ol class="timeline">${movedItems(s.moved_to)}${revs.map(revItem).join("")}</ol>
       ${revs.length > LIMIT ? `<p class="collapsed-note"><button class="linkbtn" id="more">Show all ${revs.length} revisions</button></p>` : ""}
     `;
     const more = $("#more");
@@ -524,9 +546,12 @@
   function exportCsv() {
     const cols = ["title", "key", "working_group", "status", "latest_approved", "latest_approved_date", "latest_revision", "latest_revision_date", "editors", "url"];
     const q = csvCell;
+    const moved = (s) => s.moved_to && !s.milestoneRev ? s.moved_to : null;
     const lines = [cols.join(",")].concat(filtered().map((s) => [
-      s.title, s.key, s.wg, s.status_label + (s.counts.errata && s.milestoneRev ? " (errata " + s.milestoneRev.number + ")" : ""),
-      s.milestoneRev && s.milestoneRev.file, s.milestoneRev && (s.milestoneRev.date || s.milestoneRev.listed),
+      s.title, s.key, s.wg,
+      s.moved_to ? "Moved to " + s.moved_to.body : s.status_label + (s.counts.errata && s.milestoneRev ? " (errata " + s.milestoneRev.number + ")" : ""),
+      moved(s) ? (moved(s).rfc ? "RFC " + moved(s).rfc : "") : s.milestoneRev && s.milestoneRev.file,
+      moved(s) ? moved(s).rfc_date : s.milestoneRev && (s.milestoneRev.date || s.milestoneRev.listed),
       s.latestRev && s.latestRev.file, s.latestRev && (s.latestRev.date || s.latestRev.listed),
       (s.authors || []).map((a) => a.name).join("; "),
       s.current_url ? specUrl(s.current_url) : "",

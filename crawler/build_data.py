@@ -1017,8 +1017,9 @@ OVERRIDABLE = {"title", "workgroup", "status", "note", "moved_to"}
 def clean_moved_to(v):
     """Validate a `moved_to` override: work continued at another body (e.g. the IETF).
 
-    {"body": "IETF", "via": "draft-ietf-oauth-json-web-token", "rfc": 7519, "note": "..."};
-    via, rfc and note are optional. Only names and numbers are kept: the page builds the
+    {"body": "IETF", "via": "draft-ietf-oauth-json-web-token", "rfc": 7519,
+     "rfc_title": "JSON Web Token (JWT)", "rfc_date": "2015-05", "note": "..."};
+    everything but body is optional. Only names and numbers are kept: the page builds the
     links itself, so the overrides file cannot inject arbitrary URLs."""
     if not isinstance(v, dict) or not isinstance(v.get("body"), str) or not v["body"].strip():
         raise ValueError("moved_to needs a body, e.g. {\"body\": \"IETF\"}")
@@ -1032,6 +1033,10 @@ def clean_moved_to(v):
             raise ValueError("moved_to.rfc must be an RFC number")
         out["rfc"] = v["rfc"]
         out["rfc_title"] = str(v.get("rfc_title") or "")
+        if v.get("rfc_date") is not None:
+            if not isinstance(v["rfc_date"], str) or not re.fullmatch(r"\d{4}(-\d{2}(-\d{2})?)?", v["rfc_date"]):
+                raise ValueError("moved_to.rfc_date must be YYYY, YYYY-MM or YYYY-MM-DD")
+            out["rfc_date"] = v["rfc_date"]
     if v.get("note"):
         out["note"] = str(v["note"])
     return out

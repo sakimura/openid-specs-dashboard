@@ -191,6 +191,9 @@ table.specs { width: 100%; border-collapse: collapse; }
 .timeline li .dot { position: absolute; left: 0; top: 11px; width: 14px; height: 14px; border-radius: 50%; background: var(--white); border: 2px solid var(--light-grey); }
 .timeline li.milestone .dot { background: var(--orange); border-color: var(--orange); }
 .timeline li.milestone .t-label { font-weight: 700; }
+/* Steps at another body (e.g. IETF): dark grey, not orange, which means Final at the OIDF. */
+.timeline li.external .dot { background: var(--grey); border-color: var(--grey); }
+.timeline li.external .t-label { font-weight: 700; }
 .t-date { color: var(--muted); white-space: nowrap; }
 .t-meta { grid-column: 1 / -1; font-size: var(--fs-caption); color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
 .t-title { grid-column: 1 / -1; font-size: var(--fs-caption); color: var(--grey); }
