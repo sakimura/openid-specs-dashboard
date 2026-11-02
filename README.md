@@ -91,8 +91,9 @@ override is applied.
 Colors, type and components follow the OpenID Foundation design system
 (`OIDF_Slide_Design_System.md`, 1 Nov 2026): one orange hue plus warm neutrals, light only,
 Arial. Orange is never used for text on white. In charts and chips, orange means a spec has
-reached Final; greys mean it has not. The OIDF logo is not included yet; the design system
-places it top right.
+reached Final; greys mean it has not. The OpenID logo (`public/img/openid-logo.webp`) sits
+top left and links to openid.net. The slide design system places it top right; on a web page
+top left follows the usual site convention.
 
 ## Hosting on GitHub Pages (current prototype)
 
