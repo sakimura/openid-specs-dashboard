@@ -178,5 +178,59 @@ class Fetch(unittest.TestCase):
                 b.parse_listing("".join(_row("s-%d.html" % i) for i in range(5)))
 
 
+class CrawlLimits(unittest.TestCase):
+    def test_budget_files_and_bytes(self):
+        bud = b.Budget(max_files=2, max_bytes=10)
+        bud.reserve(); bud.reserve()
+        with self.assertRaises(b.FetchError):
+            bud.reserve()
+        bud = b.Budget(max_files=10, max_bytes=10)
+        bud.spend(10)
+        with self.assertRaises(b.FetchError):
+            bud.spend(1)
+
+    def test_fetch_all_counts_failures_and_stops_at_budget(self):
+        names = ["s-%d.html" % i for i in range(5)]
+        listing = {n: {"modified": "2025-01-01T00:00"} for n in names}
+        with tempfile.TemporaryDirectory() as d, \
+                mock.patch.object(b, "http_get", return_value=b"x" * 4), mock.patch("sys.stderr"):
+            stats = b.fetch_all(names, d, listing, workers=1, budget=b.Budget(max_files=10, max_bytes=8))
+            self.assertEqual((stats["fetched"], stats["failed"]), (2, 3))
+        b.check_fetch({"fetched": 100, "failed": 3, "cached": 0, "missing": 0})
+        with self.assertRaises(b.FetchError):
+            b.check_fetch({"fetched": 100, "failed": 6, "cached": 0, "missing": 0})
+
+    def test_completeness_against_last_good(self):
+        specs = [{"revisions": [1, 2]} for _ in range(60)]
+        self.assertEqual(b.check_complete(specs, {"specs": 60, "revisions": 120}), {"specs": 60, "revisions": 120})
+        with self.assertRaises(b.FetchError):
+            b.check_complete(specs[:10], {})
+        with self.assertRaises(b.FetchError):
+            b.check_complete(specs[:53], {"specs": 60, "revisions": 106})
+        with self.assertRaises(b.FetchError):
+            b.check_complete([{"revisions": [1]} for _ in range(60)], {"specs": 60, "revisions": 120})
+
+
+class SafeCacheWrites(unittest.TestCase):
+    def test_write_replaces_symlink_instead_of_following_it(self):
+        with tempfile.TemporaryDirectory() as d, tempfile.TemporaryDirectory() as outside:
+            victim = os.path.join(outside, "victim")
+            with open(victim, "w") as f:
+                f.write("untouched")
+            for name in (".stamps.json", ".listing.html", "x.html.part"):
+                os.symlink(victim, os.path.join(d, name))
+                b.write_atomic(os.path.join(d, name), "new")
+                self.assertFalse(os.path.islink(os.path.join(d, name)))
+            with open(victim) as f:
+                self.assertEqual(f.read(), "untouched")
+            self.assertEqual(sorted(os.listdir(d)), [".listing.html", ".stamps.json", "x.html.part"])
+
+    def test_read_refuses_symlink(self):
+        with tempfile.TemporaryDirectory() as d:
+            os.symlink("/etc/hosts", os.path.join(d, ".listing.html"))
+            with self.assertRaises(OSError):
+                b.read_cached(os.path.join(d, ".listing.html"))
+
+
 if __name__ == "__main__":
     unittest.main()
