@@ -257,14 +257,22 @@ class Sitemap(unittest.TestCase):
         specs = [
             {"key": "core-1_0", "current_url": "core-1_0", "milestone": "core-1_0-errata2", "latest": "core-1_0-36"},
             {"key": "x-1_0", "current_url": None, "milestone": "x-1_0-final", "latest": "x-1_0-03"},
-            {"key": "y-1_0", "current_url": None, "milestone": None, "latest": "y-1_0-02"},
+            {"key": "y-1_0", "current_url": None, "milestone": None, "latest": "y-1_0-02", "status": "draft",
+             "updated": "2024-05-01"},
+            # Abandoned: never approved, numbered drafts only, last revised before 2012.
+            {"key": "draft-jones-jwt", "current_url": None, "milestone": None, "latest": "draft-jones-jwt-07",
+             "status": "draft", "updated": "2011-12-13"},
+            # Old but with a stable URL (e.g. Simple Registration 1.0): kept.
+            {"key": "sreg-1_0", "current_url": "sreg-1_0", "milestone": None, "latest": "sreg-1_0",
+             "status": "draft", "updated": "2006-06-30"},
             {"key": "old-1_0", "current_url": "old-1_0", "milestone": None, "latest": "old-1_0-01",
              "redirect": {"reason": "Obsolete Specification"}},
         ]
         listing = {"core-1_0.html": {"modified": "2023-12-16T05:56"}, "x-1_0-final.html": {"modified": "2024-01-02T00:00"}}
         e = b.sitemap_entries(specs, listing)
         self.assertEqual([(x["loc"].rsplit("/", 1)[1], x["lastmod"]) for x in e],
-                         [("core-1_0.html", "2023-12-16"), ("x-1_0-final.html", "2024-01-02"), ("y-1_0-02.html", None)])
+                         [("core-1_0.html", "2023-12-16"), ("sreg-1_0.html", None), ("x-1_0-final.html", "2024-01-02"),
+                          ("y-1_0-02.html", None)])
 
     def test_render_is_valid_xml(self):
         import xml.etree.ElementTree as ET

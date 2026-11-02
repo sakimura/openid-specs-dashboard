@@ -31,6 +31,10 @@ DEFAULT_OUT = os.path.join(ROOT, "public", "data", "specs.json")
 DEFAULT_OVERRIDES = os.path.join(ROOT, "crawler", "overrides.json")
 DEFAULT_REPORT = os.path.join(ROOT, "reports", "source-fixes.md")
 DEFAULT_SITEMAP = os.path.join(ROOT, "public", "sitemap-specs.xml")
+# Drafts abandoned before this date, never approved and never given a stable URL, are
+# kept on the dashboard but not offered to search engines (e.g. the 2011 draft-jones-*
+# IETF drafts, long since RFCs, and 2006 OpenID 2.0-era drafts).
+SITEMAP_ABANDONED_BEFORE = "2012-01-01"
 USER_AGENT = "OIDF-Specs-Dashboard/0.1 (+https://openid.net/specs/)"
 
 # ---------------------------------------------------------------------------
@@ -622,11 +626,16 @@ def sitemap_entries(specs, listing):
     (e.g. Core 1.0 incorporating errata set 2), or at the latest draft when nothing has
     been approved. Specs without one fall back to the latest approved document, else the
     latest draft. Numbered drafts, superseded IDs and obsolete specs are left out, so
-    crawlers are not invited to rank them alongside the approved text. lastmod is the
+    crawlers are not invited to rank them alongside the approved text. So are abandoned
+    drafts: never approved, only published as numbered drafts, and last revised before
+    SITEMAP_ABANDONED_BEFORE. lastmod is the
     directory listing date of that file: when its content last changed on the server."""
     out = []
     for s in specs:
         if s.get("redirect"):
+            continue
+        if (s.get("status") == "draft" and not s.get("current_url")
+                and (s.get("updated") or "") < SITEMAP_ABANDONED_BEFORE):
             continue
         stem = s.get("current_url") or s.get("milestone") or s.get("latest")
         if not stem or not safe_name(stem + ".html"):

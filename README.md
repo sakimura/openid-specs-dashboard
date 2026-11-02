@@ -119,7 +119,10 @@ search engine should send people to. That is the spec's unversioned URL (e.g.
 `openid-connect-core-1_0.html`), which openid.net points at the latest approved document,
 or at the latest draft when nothing has been approved. A spec without an unversioned URL
 gets its latest approved document, else its latest draft. Numbered drafts, superseded
-Implementer's Drafts and obsolete specs are left out. `<lastmod>` is the date the file last
+Implementer's Drafts and obsolete specs are left out. So are abandoned drafts: never
+approved, only published as numbered drafts and last revised before 2012, such as the
+2011 `draft-jones-*` IETF drafts (since published as RFCs) and the 2006 OpenID 2.0-era
+drafts. They stay on the dashboard. `<lastmod>` is the date the file last
 changed in the directory listing.
 
 The current `https://openid.net/addl-sitemap.xml` lists only the `/specs` directory and the
