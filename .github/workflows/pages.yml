@@ -40,6 +40,11 @@ jobs:
           key: specs-cache-${{ github.run_id }}
           restore-keys: specs-cache-
 
+      # Pinned so the test runner does not change under us (Node 24 needs file globs).
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+
       - name: Test parser
         run: python -m unittest discover -s crawler
 

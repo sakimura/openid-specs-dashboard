@@ -106,7 +106,8 @@ The crawler and the page treat everything from openid.net/specs as untrusted inp
   temporary files and read without following symlinks.
 - **The crawl fails, and writes nothing, when** more than 5% of downloads fail, fewer
   than 50 specs come out, or specs or revisions drop by more than 10% since the last good
-  build (`.cache/specs/.last-good.json`). A failed run deploys nothing, so the last good
+  build (`.cache/specs/.last-good.json`), or more than 2% of the spec names or revision
+  files in that build disappear. A failed run deploys nothing, so the last good
   site stays up.
 - **Page:** `specs.json` is checked on load. Only known fields are copied into fresh
   objects. File names, formats, dates, statuses and severities must match expected values,
