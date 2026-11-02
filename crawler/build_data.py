@@ -55,7 +55,8 @@ MAX_TOTAL_BYTES = 1 << 30       # bytes downloaded in one run
 MAX_FAILURE_RATIO = 0.05        # failed downloads, as a share of those attempted
 MIN_SPECS = 50                  # fewer means the listing or parser broke
 MIN_SHARE_OF_LAST_GOOD = 0.9    # specs and revisions, compared with the last good build
-MAX_VANISHED = 0.02             # share of known spec names or revision files that may disappear
+MAX_VANISHED = 0.02             # share of known spec names or revision files that may disappear,
+MIN_VANISHED = 3                # but at least this many, so small sets tolerate a withdrawal
 
 
 class FetchError(Exception):
@@ -637,7 +638,7 @@ def check_complete(specs, last_good):
         if gone or added:
             print("%s: %d new, %d gone%s" % (k, len(added), len(gone), (": " + ", ".join(gone[:10])) if gone else ""),
                   file=sys.stderr)
-        if len(gone) > max(3, MAX_VANISHED * len(before)):
+        if len(gone) > max(MIN_VANISHED, MAX_VANISHED * len(before)):
             raise FetchError("%d %s from the last good build are gone (e.g. %s)" % (len(gone), k, ", ".join(gone[:5])))
     return now
 

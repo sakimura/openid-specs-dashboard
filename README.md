@@ -96,9 +96,13 @@ it to the `reports` branch, which holds only the report, so that branch's histor
 what has been fixed. `public/data/` and `reports/` are generated and not committed on
 `main`; run the crawler before previewing locally.
 
-`main` is protected by a ruleset: changes arrive through pull requests, the `build`
-check (tests and a trial crawl) must pass before merging, and force pushes and deletion
-are blocked.
+`main` is protected by the "Protect main" ruleset (active since 2 Nov 2026):
+- changes arrive only through pull requests (no approval is required, so a maintainer
+  can merge their own);
+- the `build` check (tests and a trial crawl), reported by GitHub Actions, must pass
+  before merging;
+- force pushes and deleting the branch are blocked;
+- nobody can bypass these rules, repository admins included.
 
 ## Security
 
@@ -112,8 +116,9 @@ The crawler and the page treat everything from openid.net/specs as untrusted inp
   temporary files and read without following symlinks.
 - **The crawl fails, and writes nothing, when** more than 5% of downloads fail, fewer
   than 50 specs come out, or specs or revisions drop by more than 10% since the last good
-  build (`.cache/specs/.last-good.json`), or more than 2% of the spec names or revision
-  files in that build disappear. A failed run deploys nothing, so the last good
+  build (`.cache/specs/.last-good.json`), or more of that build's spec names or revision
+  files disappear than 2% of them or 3, whichever is larger. The floor of 3 lets a small
+  set lose one or two items (a withdrawn draft) without failing. A failed run deploys nothing, so the last good
   site stays up.
 - **Page:** `specs.json` is checked on load. Only known fields are copied into fresh
   objects. File names, formats, dates, statuses and severities must match expected values,
