@@ -1,4 +1,4 @@
-// Tests for the page's data handling: node --test tests/
+// Tests for the page's data handling: node --test tests/*.test.mjs
 // Uses the real public/app.js, which exports its helpers when loaded under Node.
 import { test } from "node:test";
 import assert from "node:assert/strict";

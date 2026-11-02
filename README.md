@@ -138,7 +138,7 @@ python3 -m unittest discover -s crawler
 ```
 
 ```bash
-node --test tests/
+node --test tests/*.test.mjs
 ```
 
 The second runs `public/app.js` under Node against hostile data: prototype keys,

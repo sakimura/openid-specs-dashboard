@@ -44,7 +44,7 @@ jobs:
         run: python -m unittest discover -s crawler
 
       - name: Test page data handling
-        run: node --test tests/
+        run: node --test tests/*.test.mjs
 
       - name: Crawl openid.net/specs
         run: python crawler/build_data.py
