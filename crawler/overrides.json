@@ -1,0 +1,18 @@
+{
+  "_comment": "Curated corrections for facts a document does not state, or states wrongly. Keys are spec keys (filename stem without revision suffix), current or former. Allowed fields: title, workgroup, status (final|implementers|draft), note, renamed_to (merge a spec renamed without a redirect stub into its successor). Remove an entry once the source is fixed and republished; reports/source-fixes.md lists what still needs fixing.",
+  "fapi-2_0-baseline": {
+    "note": "FAPI 2.0 Baseline Profile 00, 01 and ID1 state workgroup \"connect\" — a template error. FAPI 2.0 was developed in the FAPI WG."
+  },
+  "openid-connect-4-verifiable-presentations-1_0": {
+    "renamed_to": "openid-4-verifiable-presentations-1_0"
+  },
+  "openid-connect-modrna-client-initiated-backchannel-authentication-1_0": {
+    "renamed_to": "openid-client-initiated-backchannel-authentication-core-1_0"
+  },
+  "openid-financial-api-jarm": {
+    "renamed_to": "oauth-v2-jarm"
+  },
+  "openid-sse-framework-1_0": {
+    "renamed_to": "openid-sharedsignals-framework-1_0"
+  }
+}

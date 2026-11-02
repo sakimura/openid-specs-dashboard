@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenID Specifications Dashboard</title>
+  <meta name="description" content="Status of every OpenID Foundation specification: maturity level, current edition, working group, editors and full revision history.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-bar" aria-hidden="true"></div>
+    <div class="wrap header-inner">
+      <div>
+        <div class="kicker">OpenID Foundation&nbsp;&nbsp;·&nbsp;&nbsp;Specifications</div>
+        <h1 class="page-title" id="headline">OpenID specifications</h1>
+        <p class="lead" id="lead">Loading the specification directory…</p>
+      </div>
+      <div class="header-meta">
+        <span id="generated"></span>
+        <a href="https://openid.net/specs/" target="_blank" rel="noopener">Source directory ↗</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="kpis" id="kpis" aria-label="Summary"></section>
+
+    <section class="charts">
+      <figure class="card chart-card">
+        <figcaption>
+          <div class="kicker">Activity</div>
+          <h2 id="activity-title">Revisions published per year</h2>
+          <p class="sub">Every published revision, by maturity level</p>
+        </figcaption>
+        <div class="legend" id="legend-activity"></div>
+        <div class="chart" id="chart-activity" role="img" aria-label="Stacked bar chart of revisions per year"></div>
+      </figure>
+      <figure class="card chart-card">
+        <figcaption>
+          <div class="kicker">Working groups</div>
+          <h2 id="wg-title">Specifications by working group</h2>
+          <p class="sub">Highest maturity reached, excluding obsolete specifications</p>
+        </figcaption>
+        <div class="legend" id="legend-wg"></div>
+        <div class="chart" id="chart-wg" role="img" aria-label="Stacked bar chart of specifications per working group"></div>
+      </figure>
+    </section>
+
+    <section class="card table-card">
+      <div class="toolbar">
+        <div class="search">
+          <input id="q" type="search" placeholder="Search title, filename, editor…" aria-label="Search specifications" autocomplete="off">
+        </div>
+        <div class="seg" id="status-seg" role="group" aria-label="Filter by status">
+          <button type="button" data-v="" class="on">All</button>
+          <button type="button" data-v="final">Final</button>
+          <button type="button" data-v="implementers">Implementer's Draft</button>
+          <button type="button" data-v="draft">Draft</button>
+        </div>
+        <select id="wg" aria-label="Filter by working group"><option value="">All working groups</option></select>
+        <label class="check"><input type="checkbox" id="active"> Updated in last 12 months</label>
+        <label class="check"><input type="checkbox" id="superseded"> Show obsolete</label>
+        <span class="spacer"></span>
+        <span class="count" id="count"></span>
+        <button type="button" class="btn" id="export">Export CSV</button>
+      </div>
+      <div class="table-scroll">
+        <table class="specs" id="specs">
+          <thead>
+            <tr>
+              <th data-sort="title" class="sortable">Specification</th>
+              <th data-sort="workgroup" class="sortable">Working group</th>
+              <th data-sort="status" class="sortable">Status</th>
+              <th>Current edition</th>
+              <th>Latest revision</th>
+              <th data-sort="updated" class="sortable sorted desc">Updated</th>
+              <th>Editors</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <p class="empty" id="empty" hidden>No specifications match these filters.</p>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <p>Title, date, editors and working group are read from each document on
+        <a href="https://openid.net/specs/">openid.net/specs</a>. Maturity comes from the
+        file naming convention: <code>-NN</code> draft, <code>-IDn</code> Implementer's Draft,
+        <code>-final</code>, <code>-erratan</code>. A spec published under several filenames is shown once,
+        when a redirect page or identical document titles show it was renamed.
+        Working groups marked <span class="inferred-mark">*</span> are not stated in the document.</p>
+      <p>© 2026 OpenID Foundation&nbsp;&nbsp;·&nbsp;&nbsp;Specifications Dashboard (prototype, not an official publication)&nbsp;&nbsp;·&nbsp;&nbsp;<span id="foot-date"></span></p>
+    </footer>
+  </main>
+
+  <aside class="drawer" id="drawer" aria-hidden="true" aria-labelledby="d-title" role="dialog">
+    <div class="drawer-backdrop" data-close></div>
+    <div class="drawer-panel">
+      <button type="button" class="icon-btn drawer-close" data-close aria-label="Close">✕</button>
+      <div id="drawer-body"></div>
+    </div>
+  </aside>
+
+  <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>
