@@ -72,8 +72,11 @@ specs). Put corrections in `crawler/overrides.json`:
 }
 ```
 
-Allowed fields: `title`, `workgroup`, `status`, `note`, and `renamed_to` (merge a spec
-renamed without a redirect page into its successor). Keys can be a current or former name. Overridden fields are listed in
+Allowed fields: `title`, `workgroup`, `status`, `note`, `renamed_to` (merge a spec
+renamed without a redirect page into its successor), and `moved_to` (work continued at
+another body, e.g. `{"body": "IETF", "via": "draft-ietf-oauth-json-web-token", "rfc": 7519,
+"rfc_title": "JSON Web Token (JWT)"}`). Moved specs are hidden with the obsolete ones by
+default, show a "Moved to IETF" badge with the RFC link, and are left out of the sitemap. Keys can be a current or former name. Overridden fields are listed in
 the detail panel so it is always clear what came from the document and what did not.
 
 ## Source fixes report
