@@ -33,7 +33,7 @@ Earlier revisions name another WG before the owning WG appears anywhere in the c
 |---|---|---|---|---|
 | OpenID for Verifiable Credential Issuance 1.0<br>`openid-4-verifiable-credential-issuance-1_0` | [`openid-connect-4-verifiable-credential-issuance-1_0-02`](https://openid.net/specs/openid-connect-4-verifiable-credential-issuance-1_0-02.html) … [`openid-4-verifiable-credential-issuance-1_0-12`](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-12.html) (8 revisions) | OpenID Connect, connect | Digital Credentials Protocols | States AB/Connect before any document named the Digital Credentials Protocols WG. Probably developed there before a hand-over; confirm and leave as-is if so. |
 | OpenID for Verifiable Presentations 1.0<br>`openid-4-verifiable-presentations-1_0` | [`openid-connect-4-verifiable-presentations-1_0-00`](https://openid.net/specs/openid-connect-4-verifiable-presentations-1_0-00.html) … [`openid-4-verifiable-presentations-1_0-20`](https://openid.net/specs/openid-4-verifiable-presentations-1_0-20.html) (16 revisions) | connect | Digital Credentials Protocols | States AB/Connect before any document named the Digital Credentials Protocols WG. Probably developed there before a hand-over; confirm and leave as-is if so. |
-| OpenID for Verifiable Presentations over BLE<br>`openid-4-verifiable-presentations-over-ble-1_0` | [`openid-4-verifiable-presentations-over-ble-1_0-00`](https://openid.net/specs/openid-4-verifiable-presentations-over-ble-1_0-00.html) | OpenID Connect | Digital Credentials Protocols | States AB/Connect before any document named the Digital Credentials Protocols WG. Probably developed there before a hand-over; confirm and leave as-is if so. Affects the current edition. |
+| OpenID for Verifiable Presentations over BLE<br>`openid-4-verifiable-presentations-over-ble-1_0` | [`openid-4-verifiable-presentations-over-ble-1_0-00`](https://openid.net/specs/openid-4-verifiable-presentations-over-ble-1_0-00.html) | OpenID Connect | Digital Credentials Protocols | States AB/Connect before any document named the Digital Credentials Protocols WG. Probably developed there before a hand-over; confirm and leave as-is if so. Affects the latest approved document, or the latest draft if none has been approved. |
 | OpenID Connect for Identity Assurance 1.0<br>`openid-connect-4-identity-assurance-1_0` | [`openid-connect-4-identity-assurance-00`](https://openid.net/specs/openid-connect-4-identity-assurance-00.html)<br>[`openid-connect-4-identity-assurance-1_0-09`](https://openid.net/specs/openid-connect-4-identity-assurance-1_0-09.html) | OpenID Foundation Artifact Binding Working Group, connect | eKYC & IDA | States AB/Connect before any document named the eKYC & IDA WG. Probably developed there before a hand-over; confirm and leave as-is if so. |
 
 ## Renames missing a redirect stub (add on openid.net)
@@ -60,7 +60,7 @@ Latest revision is 2021 or later and has no workgroup field. Add `workgroup` to 
 
 ## Inconsistent working group names (harmonise)
 
-The same WG is spelled differently in the `workgroup` header field of current editions. (IANA "Change Controller" entries are not listed: those record the registrant.)
+The same WG is spelled differently in the `workgroup` header field across specs (each spec's latest approved document, or its latest draft if none has been approved). (IANA "Change Controller" entries are not listed: those record the registrant.)
 
 | WG | Spelling in document | Used by |
 |---|---|---|
