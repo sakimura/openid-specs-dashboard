@@ -112,6 +112,29 @@ what has been fixed. `public/data/` and `reports/` are generated and not committ
 - force pushes and deleting the branch are blocked;
 - nobody can bypass these rules, repository admins included.
 
+## Sitemap for search engines
+
+Every crawl also writes `public/sitemap-specs.xml`: one URL per live spec, the page a
+search engine should send people to. That is the spec's unversioned URL (e.g.
+`openid-connect-core-1_0.html`), which openid.net points at the latest approved document,
+or at the latest draft when nothing has been approved. A spec without an unversioned URL
+gets its latest approved document, else its latest draft. Numbered drafts, superseded
+Implementer's Drafts and obsolete specs are left out. `<lastmod>` is the date the file last
+changed in the directory listing.
+
+The current `https://openid.net/addl-sitemap.xml` lists only the `/specs` directory and the
+specs page, so crawlers see all ~2,600 files as equals. To use this one:
+
+1. Serve it from openid.net, e.g. as `https://openid.net/specs/sitemap-specs.xml`. A sitemap
+   may only list URLs on its own host, unless that host's `robots.txt` points to it.
+2. Add `Sitemap: https://openid.net/specs/sitemap-specs.xml` to `robots.txt`, or submit it
+   in Google Search Console and Bing Webmaster Tools.
+
+A sitemap says what to crawl, not which page to prefer. To stop numbered revisions from
+competing with the approved text, openid.net would also send
+`Link: <https://openid.net/specs/…-1_0.html>; rel="canonical"` on each numbered revision.
+That is a server setting; the published documents stay unchanged.
+
 ## Security
 
 The crawler and the page treat everything from openid.net/specs as untrusted input.

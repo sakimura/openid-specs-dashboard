@@ -252,5 +252,29 @@ class SafeCacheWrites(unittest.TestCase):
                 b.read_cached(os.path.join(d, ".listing.html"))
 
 
+class Sitemap(unittest.TestCase):
+    def test_one_url_per_live_spec(self):
+        specs = [
+            {"key": "core-1_0", "current_url": "core-1_0", "milestone": "core-1_0-errata2", "latest": "core-1_0-36"},
+            {"key": "x-1_0", "current_url": None, "milestone": "x-1_0-final", "latest": "x-1_0-03"},
+            {"key": "y-1_0", "current_url": None, "milestone": None, "latest": "y-1_0-02"},
+            {"key": "old-1_0", "current_url": "old-1_0", "milestone": None, "latest": "old-1_0-01",
+             "redirect": {"reason": "Obsolete Specification"}},
+        ]
+        listing = {"core-1_0.html": {"modified": "2023-12-16T05:56"}, "x-1_0-final.html": {"modified": "2024-01-02T00:00"}}
+        e = b.sitemap_entries(specs, listing)
+        self.assertEqual([(x["loc"].rsplit("/", 1)[1], x["lastmod"]) for x in e],
+                         [("core-1_0.html", "2023-12-16"), ("x-1_0-final.html", "2024-01-02"), ("y-1_0-02.html", None)])
+
+    def test_render_is_valid_xml(self):
+        import xml.etree.ElementTree as ET
+        xml = b.render_sitemap([{"loc": b.BASE_URL + "a-1_0.html", "lastmod": "2025-01-01"},
+                                {"loc": b.BASE_URL + "b-1_0.html", "lastmod": None}])
+        root = ET.fromstring(xml)
+        ns = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
+        self.assertEqual([u.find(ns + "loc").text for u in root], [b.BASE_URL + "a-1_0.html", b.BASE_URL + "b-1_0.html"])
+        self.assertIsNone(root[1].find(ns + "lastmod"))
+
+
 if __name__ == "__main__":
     unittest.main()
