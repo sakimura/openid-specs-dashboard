@@ -1,5 +1,5 @@
 {
-  "_comment": "Curated corrections for facts a document does not state, or states wrongly. Keys are spec keys (filename stem without revision suffix), current or former. Allowed fields: title, workgroup, status (final|implementers|draft), note, renamed_to (merge a spec renamed without a redirect stub into its successor). Remove an entry once the source is fixed and republished; reports/source-fixes.md lists what still needs fixing.",
+  "_comment": "Curated corrections for facts a document does not state, or states wrongly. Keys are spec keys (filename stem without revision suffix), current or former. Allowed fields: title, workgroup, status (final|implementers|draft), note, renamed_to (merge a spec renamed without a redirect stub into its successor), moved_to (work continued at another body: {body, via (Internet-Draft name), rfc (number), rfc_title, note}). Remove an entry once the source is fixed and republished; reports/source-fixes.md lists what still needs fixing.",
   "fapi-2_0-baseline": {
     "note": "FAPI 2.0 Baseline Profile 00, 01 and ID1 state workgroup \"connect\" — a template error. FAPI 2.0 was developed in the FAPI WG."
   },
@@ -14,5 +14,51 @@
   },
   "openid-sse-framework-1_0": {
     "renamed_to": "openid-sharedsignals-framework-1_0"
+  },
+  "draft-jones-json-web-token": {
+    "moved_to": {
+      "body": "IETF",
+      "via": "draft-ietf-oauth-json-web-token",
+      "rfc": 7519,
+      "rfc_title": "JSON Web Token (JWT)"
+    }
+  },
+  "draft-jones-json-web-signature": {
+    "moved_to": {
+      "body": "IETF",
+      "via": "draft-ietf-jose-json-web-signature",
+      "rfc": 7515,
+      "rfc_title": "JSON Web Signature (JWS)"
+    }
+  },
+  "draft-jones-json-web-encryption": {
+    "moved_to": {
+      "body": "IETF",
+      "via": "draft-ietf-jose-json-web-encryption",
+      "rfc": 7516,
+      "rfc_title": "JSON Web Encryption (JWE)"
+    }
+  },
+  "draft-jones-json-web-key": {
+    "moved_to": {
+      "body": "IETF",
+      "via": "draft-ietf-jose-json-web-key",
+      "rfc": 7517,
+      "rfc_title": "JSON Web Key (JWK)"
+    }
+  },
+  "draft-jones-oauth-jwt-bearer": {
+    "moved_to": {
+      "body": "IETF",
+      "via": "draft-ietf-oauth-jwt-bearer",
+      "rfc": 7523,
+      "rfc_title": "JSON Web Token (JWT) Profile for OAuth 2.0 Client Authentication and Authorization Grants"
+    }
+  },
+  "draft-jones-simple-web-discovery": {
+    "moved_to": {
+      "body": "IETF",
+      "note": "Continued as an IETF individual draft (last revision -04); it expired without becoming an RFC."
+    }
   }
 }

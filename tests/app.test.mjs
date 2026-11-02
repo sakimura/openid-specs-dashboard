@@ -84,6 +84,14 @@ test("malformed top level is rejected", () => {
   }
 });
 
+test("moved_to keeps only a body, a draft name and an RFC number", () => {
+  const ok = app.prepare(app.validate(data(spec({ moved_to: { body: "IETF", via: "draft-ietf-oauth-json-web-token", rfc: 7519 } }))))[0];
+  assert.deepEqual([ok.moved_to.via, ok.moved_to.rfc, ok.superseded], ["draft-ietf-oauth-json-web-token", 7519, true]);
+  const bad = app.validate(data(spec({ moved_to: { body: "IETF", via: "javascript:alert(1)", rfc: "7519", url: "https://evil.example" } }))).specs[0];
+  assert.deepEqual(bad.moved_to, { body: "IETF", via: null, rfc: null, rfc_title: null, note: null });
+  assert.equal(app.validate(data(spec({ moved_to: { body: "" } }))).specs[0].moved_to, null);
+});
+
 test("hash parameters fall back to defaults", () => {
   assert.deepEqual([app.parseHash("#sort=bogus:bad").sort, app.parseHash("#sort=bogus:bad").dir], ["updated", "desc"]);
   assert.deepEqual([app.parseHash("#sort=title").sort, app.parseHash("#sort=title").dir], ["title", "asc"]);

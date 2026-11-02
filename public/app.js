@@ -83,6 +83,19 @@
     return { severity: i.severity, category: str(i.category), detail: str(i.detail), expected: str(i.expected),
       found: str(i.found), files: list(i.files).filter(okFile) };
   }
+  // Work that continued at another body. Only a name, a draft name and an RFC number are
+  // kept; the links are built here, never taken from the data.
+  function cleanMovedTo(m) {
+    if (!isObj(m) || typeof m.body !== "string" || !m.body.trim()) return null;
+    return {
+      body: m.body.trim(),
+      via: typeof m.via === "string" && /^draft-[a-z0-9-]+$/.test(m.via) ? m.via : null,
+      rfc: Number.isInteger(m.rfc) && m.rfc > 0 && m.rfc < 100000 ? m.rfc : null,
+      rfc_title: str(m.rfc_title), note: str(m.note),
+    };
+  }
+  const rfcUrl = (n) => "https://www.rfc-editor.org/rfc/rfc" + n;
+  const draftUrl = (name) => "https://datatracker.ietf.org/doc/" + encodeURIComponent(name) + "/";
   function cleanSpec(s) {
     if (!isObj(s) || !okFile(s.key) || !STATUSES.has(s.status)) return null;
     const revisions = list(s.revisions).map(cleanRevision).filter(Boolean);
@@ -105,6 +118,7 @@
       issues: list(s.issues).map(cleanIssue).filter(Boolean),
       redirect: r ? { reason: String(r.reason || "Obsolete Specification"), message: str(r.message),
         target: okFile(r.target) ? r.target : null, target_key: okFile(r.target_key) ? r.target_key : null } : null,
+      moved_to: cleanMovedTo(s.moved_to),
       note: str(s.note), curated: list(s.curated).length ? list(s.curated).map(String) : null,
     };
   }
@@ -119,7 +133,8 @@
     return data.specs.map((s) => {
       const milestone = rev(s, s.milestone);
       const latest = rev(s, s.latest);
-      const superseded = !!s.redirect;
+      // Obsolete (redirect page on openid.net) or continued elsewhere: hidden by default.
+      const superseded = !!s.redirect || !!s.moved_to;
       const wg = s.workgroup || NOT_STATED;
       const displayKind = milestone ? milestone.kind : "draft";
       const hay = [s.title, s.key, wg, ...(s.former_names || []).flatMap((f) => [f.key, f.title]), ...(s.revisions.flatMap((r) => r.authors.map((a) => a.name)))].join(" ").toLowerCase();
@@ -158,7 +173,7 @@
     const live = SPECS.filter((s) => !s.superseded);
     const n = (st) => live.filter((s) => s.status === st).length;
     const tiles = [
-      { key: "", label: "Specifications", value: live.length, note: `${SPECS.length - live.length} obsolete not counted` },
+      { key: "", label: "Specifications", value: live.length, note: `${SPECS.length - live.length} obsolete or moved not counted` },
       { key: "final", label: "Final", value: n("final"), note: `${live.filter((s) => s.counts.errata).length} with errata`, color: "final" },
       { key: "implementers", label: "Implementer's Drafts", value: n("implementers"), note: "highest level reached", color: "implementers" },
       { key: "draft", label: "Drafts", value: n("draft"), note: "no ID or Final yet", color: "draft" },
@@ -307,7 +322,7 @@
 
   // ---------------------------------------------------------------- table
   function statusBadge(s) {
-    if (s.superseded && !s.milestoneRev && !s.latestRev) return `<span class="badge renamed">${esc(s.redirect.reason)}</span>`;
+    if (s.redirect && !s.milestoneRev && !s.latestRev) return `<span class="badge renamed">${esc(s.redirect.reason)}</span>`;
     const k = s.status === "final" && s.counts.errata ? "errata" : s.status;
     let label = s.status_label;
     if (k === "errata") label = "Final · Errata " + s.milestoneRev.number;
@@ -328,7 +343,9 @@
   }
   function flags(s) {
     const f = [];
-    if (s.superseded) f.push(`<span class="badge renamed">${esc(s.redirect.reason.replace(/ ?Specification ?/, "")) || "Obsolete"}</span>`);
+    if (s.redirect) f.push(`<span class="badge renamed">${esc(s.redirect.reason.replace(/ ?Specification ?/, "")) || "Obsolete"}</span>`);
+    if (s.moved_to) f.push(`<span class="badge renamed">Moved to ${esc(s.moved_to.body)}</span>` +
+      (s.moved_to.rfc ? `<a class="flag" href="${rfcUrl(s.moved_to.rfc)}" target="_blank" rel="noopener" data-stop>RFC ${s.moved_to.rfc}</a>` : ""));
     if (s.issues && s.issues.some((i) => i.severity === "error")) f.push(`<span class="flag flag-issue" title="The published document has a metadata error; see details">Metadata error in source</span>`);
     if (s.newerDraft) f.push(`<span class="flag" title="A draft has been published after the latest approved document. The dashboard cannot tell whether it is errata, a revision or the next approval step.">Drafts after ${esc(approvedShort(s.milestoneRev))}</span>`);
     return f.length ? `<div class="flags">${f.join("")}</div>` : "";
@@ -384,6 +401,13 @@
   }
 
   // ---------------------------------------------------------------- drawer
+  function movedText(m) {
+    const parts = [];
+    if (m.via) parts.push(`continued as <a href="${draftUrl(m.via)}" target="_blank" rel="noopener" class="mono">${esc(m.via)}</a>`);
+    if (m.rfc) parts.push(`published as <a href="${rfcUrl(m.rfc)}" target="_blank" rel="noopener">RFC ${m.rfc}</a>${m.rfc_title ? ", " + esc(m.rfc_title) : ""}`);
+    const s = parts.join(" and ");
+    return (s ? s.charAt(0).toUpperCase() + s.slice(1) + ". " : "") + (m.note ? esc(m.note) : "");
+  }
   function openDrawer(key, push = true) {
     const s = SPECS.find((x) => x.key === key);
     if (!s) return;
@@ -411,6 +435,7 @@
       <div class="d-badges">${statusBadge(s)}${flags(s).replace(/<\/?div[^>]*>/g, "")}</div>
       ${s.redirect ? `<div class="callout"><span class="callout-label">${esc(s.redirect.reason)}:</span> ${esc((s.redirect.message || "").replace(s.redirect.reason, "").replace(/Your browser should load[^.]*\.\s*/, "").trim())}
         ${target ? ` <button class="linkbtn" data-goto="${esc(target.key)}">Open ${esc(target.title)} →</button>` : ""}</div>` : ""}
+      ${s.moved_to ? `<div class="callout"><span class="callout-label">Moved to ${esc(s.moved_to.body)}:</span> ${movedText(s.moved_to)}</div>` : ""}
       <dl class="d-grid">
         <dt>Filename stem</dt><dd class="mono">${esc(s.key)}</dd>
         ${s.current_url ? `<dt>Canonical URL</dt><dd><a href="${specUrl(s.current_url)}" target="_blank" rel="noopener">${esc(specUrl(s.current_url))}</a></dd>` : ""}
@@ -419,7 +444,7 @@
         <dt>Revisions</dt><dd>${s.counts.draft} drafts · ${s.counts.implementers} Implementer's Drafts · ${s.counts.final} Final · ${s.counts.errata} errata</dd>
         ${s.workgroup_raw && s.workgroup_raw !== s.wg ? `<dt>WG as stated</dt><dd>${esc(s.workgroup_raw)}</dd>` : ""}
         ${s.note ? `<dt>Note</dt><dd>${esc(s.note)}</dd>` : ""}
-        ${s.curated ? `<dt>Curated fields</dt><dd>${esc(s.curated.join(", "))}</dd>` : ""}
+        ${s.curated ? `<dt>Curated fields</dt><dd>${esc(s.curated.map((f) => f.replace(/_/g, " ")).join(", "))}</dd>` : ""}
       </dl>
       ${s.former_names ? `<div class="d-section kicker">Published earlier as</div><ul class="former">${s.former_names.map((f) =>
         `<li><span class="mono">${esc(f.key)}</span>${f.title && f.title !== s.title ? `<span>${esc(f.title)}</span>` : ""}<span class="how">${esc(f.how.startsWith("redirect") ? "redirect page on openid.net" : f.how)}</span></li>`).join("")}</ul>` : ""}
