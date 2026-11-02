@@ -101,13 +101,22 @@ The crawler and the page treat everything from openid.net/specs as untrusted inp
 - **Crawler:** filenames must be plain basenames (`[A-Za-z0-9][A-Za-z0-9._-]*`, which every
   real spec filename matches); anything else is skipped. Cache writes are confined to the
   cache directory and never follow symlinks. Fetches go only to `https://openid.net`,
-  including redirects. Responses are capped (8 MB listing, 16 MB per document) and the
-  listing at 20,000 entries. If fewer than 50 specs come out, the crawl fails and nothing
-  is written, so the last good deployment stays up.
-- **Page:** `specs.json` is checked on load: file names, formats, dates, statuses and
-  severities must match expected shapes, or the item is dropped. Text is HTML-escaped and
-  URL parts are percent-encoded. URL-hash parameters are checked against allowed values.
-  CSV cells starting with `= + - @` are prefixed with `'` so spreadsheets keep them as text.
+  including redirects. Limits: 8 MB for the listing, 16 MB per document, 20,000 listing
+  entries, and 5,000 downloads or 1 GB per run. Cache files are written through new
+  temporary files and read without following symlinks.
+- **The crawl fails, and writes nothing, when** more than 5% of downloads fail, fewer
+  than 50 specs come out, or specs or revisions drop by more than 10% since the last good
+  build (`.cache/specs/.last-good.json`). A failed run deploys nothing, so the last good
+  site stays up.
+- **Page:** `specs.json` is checked on load. Only known fields are copied into fresh
+  objects. File names, formats, dates, statuses and severities must match expected values,
+  or the item is dropped, as is a spec with no usable revision. Values from the documents
+  (such as WG names) are never used as object keys. Text is HTML-escaped, and URL parts
+  are percent-encoded. URL-hash parameters are checked against allowed values.
+- **CSV export:** a cell that starts with `= + - @`, their full-width forms, whitespace or a
+  control character gets a leading `'`, and line breaks become spaces. In LibreOffice no
+  such cell imports as a formula. Excel hasn't been tested. The `'` shows in the cell; that
+  is the price of keeping the cell inert.
   A Content-Security-Policy meta tag allows only same-origin scripts, styles and data.
   `frame-ancestors` needs an HTTP header, which GitHub Pages cannot set; add it on openid.net.
 - **CI:** the workflow is read-only by default. The crawl job cannot push or deploy, the
@@ -127,3 +136,10 @@ The crawler and the page treat everything from openid.net/specs as untrusted inp
 ```bash
 python3 -m unittest discover -s crawler
 ```
+
+```bash
+node --test tests/
+```
+
+The second runs `public/app.js` under Node against hostile data: prototype keys,
+bad statuses, unsafe file names and URLs, malformed records and CSV formula cells.

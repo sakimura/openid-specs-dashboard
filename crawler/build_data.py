@@ -19,6 +19,8 @@ import json
 import os
 import re
 import sys
+import tempfile
+import threading
 import urllib.parse
 import urllib.request
 
@@ -48,7 +50,11 @@ ALLOWED_HOST = urllib.parse.urlsplit(BASE_URL).hostname
 MAX_LISTING_BYTES = 8 << 20
 MAX_DOC_BYTES = 16 << 20
 MAX_LISTING_ENTRIES = 20000
-MIN_SPECS = 50  # fewer means the listing or parser broke; keep the last good data
+MAX_DOWNLOADS = 5000            # documents fetched in one run
+MAX_TOTAL_BYTES = 1 << 30       # bytes downloaded in one run
+MAX_FAILURE_RATIO = 0.05        # failed downloads, as a share of those attempted
+MIN_SPECS = 50                  # fewer means the listing or parser broke
+MIN_SHARE_OF_LAST_GOOD = 0.9    # specs and revisions, compared with the last good build
 
 
 class FetchError(Exception):
@@ -515,36 +521,106 @@ def cache_path(cache_dir, name):
     return path
 
 
-def fetch_all(names, cache_dir, listing, workers=8, offline=False):
+def write_atomic(path, data):
+    """Write via a new temporary file in the same directory, then rename over `path`.
+
+    The temporary file is created exclusively, so a planted symlink is never followed,
+    and the rename replaces a symlink at `path` rather than writing through it."""
+    if isinstance(data, str):
+        data = data.encode("utf-8")
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".", prefix=".tmp-")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+        os.chmod(tmp, 0o644)  # mkstemp creates 0600; the output is served by a web server
+        os.replace(tmp, path)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+
+
+def read_cached(path, binary=False):
+    """Read a cache file, refusing symlinks."""
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    with os.fdopen(fd, "rb") as f:
+        data = f.read()
+    return data if binary else data.decode("utf-8", "replace")
+
+
+class Budget:
+    """Crawl-wide limits on the number and total size of downloads."""
+
+    def __init__(self, max_files=MAX_DOWNLOADS, max_bytes=MAX_TOTAL_BYTES):
+        self.max_files, self.max_bytes = max_files, max_bytes
+        self.files = self.bytes = 0
+        self._lock = threading.Lock()
+
+    def reserve(self):
+        with self._lock:
+            if self.files >= self.max_files:
+                raise FetchError("download budget of %d files used up" % self.max_files)
+            self.files += 1
+
+    def spend(self, n):
+        with self._lock:
+            self.bytes += n
+            if self.bytes > self.max_bytes:
+                raise FetchError("download budget of %d bytes used up" % self.max_bytes)
+
+
+def fetch_all(names, cache_dir, listing, workers=8, offline=False, budget=None):
+    """Bring the cache up to date. Returns counts: fetched, cached, failed, missing."""
     os.makedirs(cache_dir, exist_ok=True)
-    stamp_path = os.path.join(cache_dir, ".stamps.json")
+    budget = budget or Budget()
+    stamp_path = os.path.join(os.path.realpath(cache_dir), ".stamps.json")
     stamps = {}
     if os.path.exists(stamp_path):
-        with open(stamp_path) as f:
-            stamps = json.load(f)
+        try:
+            stamps = json.loads(read_cached(stamp_path))
+        except (OSError, ValueError):
+            stamps = {}
+        if not isinstance(stamps, dict):
+            stamps = {}
 
     def one(name):
         path = cache_path(cache_dir, name)
-        fresh = os.path.exists(path) and stamps.get(name) == listing.get(name, {}).get("modified")
-        if offline or fresh:
-            return name, os.path.exists(path)
+        have = os.path.exists(path)
+        if offline or (have and stamps.get(name) == listing.get(name, {}).get("modified")):
+            return "cached" if have else "missing"
         try:
+            budget.reserve()
             data = http_get(BASE_URL + urllib.parse.quote(name))
-        except Exception as e:  # keep going; stale cache is better than nothing
+            budget.spend(len(data))
+        except Exception as e:  # stale cache is better than nothing, but it is counted
             print("  ! %s: %s" % (name, e), file=sys.stderr)
-            return name, os.path.exists(path)
-        tmp = path + ".part"
-        with open(tmp, "wb") as f:
-            f.write(data)
-        os.replace(tmp, path)
+            return "failed"
+        write_atomic(path, data)
         stamps[name] = listing.get(name, {}).get("modified")
-        return name, True
+        return "fetched"
 
     with concurrent.futures.ThreadPoolExecutor(workers) as ex:
-        ok = dict(ex.map(one, names))
-    with open(stamp_path, "w") as f:
-        json.dump(stamps, f, indent=0, sort_keys=True)
-    return ok
+        results = list(ex.map(one, names))
+    write_atomic(stamp_path, json.dumps(stamps, indent=0, sort_keys=True))
+    return {k: results.count(k) for k in ("fetched", "cached", "failed", "missing")}
+
+
+def check_fetch(stats):
+    """Raise when too many downloads failed for the result to be trusted."""
+    attempted = stats["fetched"] + stats["failed"]
+    if stats["failed"] > max(3, MAX_FAILURE_RATIO * attempted):
+        raise FetchError("%d of %d downloads failed" % (stats["failed"], attempted))
+
+
+def check_complete(specs, last_good):
+    """Raise when this build lost a large share of specs or revisions."""
+    now = {"specs": len(specs), "revisions": sum(len(s["revisions"]) for s in specs)}
+    if now["specs"] < MIN_SPECS:
+        raise FetchError("only %d specs found (expected at least %d)" % (now["specs"], MIN_SPECS))
+    for k in ("specs", "revisions"):
+        if last_good.get(k) and now[k] < MIN_SHARE_OF_LAST_GOOD * last_good[k]:
+            raise FetchError("%s dropped from %d to %d since the last good build" % (k, last_good[k], now[k]))
+    return now
 
 
 def build(listing, cache_dir, renamed_to=None):
@@ -584,8 +660,7 @@ def build(listing, cache_dir, renamed_to=None):
         path = cache_path(cache_dir, stem + ".html")
         if not os.path.exists(path):
             return {}
-        with open(path, encoding="utf-8", errors="replace") as f:
-            return parse_document(f.read())
+        return parse_document(read_cached(path))
 
     loaded = {}
     for key, spec in sorted(specs.items()):
@@ -933,24 +1008,37 @@ def main():
     args = ap.parse_args()
 
     os.makedirs(args.cache, exist_ok=True)
-    listing_path = os.path.join(args.cache, ".listing.html")
+    cache_root = os.path.realpath(args.cache)
+    listing_path = os.path.join(cache_root, ".listing.html")
+    last_good_path = os.path.join(cache_root, ".last-good.json")
     if args.offline:
-        with open(listing_path, encoding="utf-8") as f:
-            text = f.read()
+        text = read_cached(listing_path)
     else:
         text = http_get(BASE_URL, max_bytes=MAX_LISTING_BYTES).decode("utf-8", "replace")
-        with open(listing_path, "w", encoding="utf-8") as f:
-            f.write(text)
+        write_atomic(listing_path, text)
     listing = parse_listing(text)
     print("listing: %d files" % len(listing), file=sys.stderr)
 
-    htmls = [n for n in listing if n.lower().endswith(".html")]
-    fetch_all(htmls, args.cache, listing, args.workers, args.offline)
+    # Nothing below writes output until the crawl has passed these checks, so a broken
+    # or tampered source fails the run and the last good deployment stays up.
+    try:
+        htmls = [n for n in listing if n.lower().endswith(".html")]
+        stats = fetch_all(htmls, args.cache, listing, args.workers, args.offline)
+        print("documents: %(fetched)d fetched, %(cached)d cached, %(failed)d failed, %(missing)d missing" % stats,
+              file=sys.stderr)
+        check_fetch(stats)
 
-    overrides = load_overrides(args.overrides)
-    specs = build(listing, args.cache, renames_from(overrides))
-    if len(specs) < MIN_SPECS:
-        sys.exit("only %d specs found (expected at least %d); not writing output" % (len(specs), MIN_SPECS))
+        overrides = load_overrides(args.overrides)
+        specs = build(listing, args.cache, renames_from(overrides))
+        last_good = {}
+        if os.path.exists(last_good_path):
+            try:
+                last_good = json.loads(read_cached(last_good_path))
+            except (OSError, ValueError):
+                pass
+        totals = check_complete(specs, last_good if isinstance(last_good, dict) else {})
+    except FetchError as e:
+        sys.exit("crawl rejected: %s; not writing output" % e)
     generated = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
 
     # Check the documents before overrides are applied, so the report reflects the sources.
@@ -958,8 +1046,7 @@ def main():
     issues = source_issues.find_issues(specs)
     overrides = apply_overrides(specs, overrides)
     os.makedirs(os.path.dirname(args.report), exist_ok=True)
-    with open(args.report, "w", encoding="utf-8") as f:
-        f.write(source_issues.render_markdown(issues, generated[:10], overrides))
+    write_atomic(args.report, source_issues.render_markdown(issues, generated[:10], overrides))
     print("wrote %d source issues -> %s" % (len(issues), args.report), file=sys.stderr)
 
     data = {
@@ -968,10 +1055,8 @@ def main():
         "specs": specs,
     }
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
-    tmp = args.out + ".part"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
-    os.replace(tmp, args.out)
+    write_atomic(args.out, json.dumps(data, ensure_ascii=False, separators=(",", ":")))
+    write_atomic(last_good_path, json.dumps(dict(totals, generated=generated)))
     print("wrote %d specs -> %s" % (len(specs), args.out), file=sys.stderr)
 
 

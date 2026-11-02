@@ -55,43 +55,62 @@
   function rev(spec, file) { return spec.revisions.find((r) => r.file === file) || null; }
 
   // ---------------------------------------------------------------- validate
+  // Only known fields are copied, into fresh objects, so keys such as "__proto__"
+  // in the data never reach an object's prototype. Enum checks use Sets, not `in`.
+  const STATUSES = new Set(["draft", "implementers", "final"]);
+  const WG_SOURCES = new Set(["document", "inferred", "curated"]);
   const okDate = (d) => (typeof d === "string" && ISO_DATE.test(d) ? d : null);
   const okFile = (f) => typeof f === "string" && SAFE_FILE.test(f);
-  const okText = (t) => (t == null ? t : String(t));
-  function cleanAuthors(list) {
-    return (Array.isArray(list) ? list : []).map((a) => ({ name: String(a && a.name || ""), org: okText(a && a.org) }));
+  const str = (t) => (t == null ? null : String(t));
+  const list = (v) => (Array.isArray(v) ? v : []);
+  const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+  function cleanAuthors(v) {
+    return list(v).filter(isObj).map((a) => ({ name: String(a.name || ""), org: str(a.org) })).filter((a) => a.name);
   }
   function cleanRevision(r) {
-    if (!r || !okFile(r.file) || !KINDS.includes(r.kind)) return null;
-    return Object.assign({}, r, {
-      number: r.number != null && /^[\d-]+$/.test(r.number) ? r.number : null,
-      label: String(r.label || r.file), title: okText(r.title),
+    if (!isObj(r) || !okFile(r.file) || !KINDS.includes(r.kind)) return null;
+    return {
+      file: r.file, kind: r.kind,
+      number: typeof r.number === "string" && /^[\d-]+$/.test(r.number) ? r.number : null,
+      label: String(r.label || r.file), title: str(r.title),
       date: okDate(r.date), listed: okDate(r.listed),
-      formats: (Array.isArray(r.formats) ? r.formats : []).filter((f) => FORMATS.has(f)),
+      formats: list(r.formats).filter((f) => FORMATS.has(f)),
       authors: cleanAuthors(r.authors),
-    });
+    };
+  }
+  function cleanIssue(i) {
+    if (!isObj(i) || !SEVERITIES.has(i.severity)) return null;
+    return { severity: i.severity, category: str(i.category), detail: str(i.detail), expected: str(i.expected),
+      found: str(i.found), files: list(i.files).filter(okFile) };
   }
   function cleanSpec(s) {
-    if (!s || !okFile(s.key) || !(s.status in STATUS_RANK)) return null;
-    const revisions = (Array.isArray(s.revisions) ? s.revisions : []).map(cleanRevision).filter(Boolean);
+    if (!isObj(s) || !okFile(s.key) || !STATUSES.has(s.status)) return null;
+    const revisions = list(s.revisions).map(cleanRevision).filter(Boolean);
+    // Every link and date on a row comes from a revision; a spec without one cannot be shown.
+    if (!revisions.length) return null;
     const files = new Set(revisions.map((r) => r.file));
-    return Object.assign({}, s, {
-      title: okText(s.title), workgroup: okText(s.workgroup), revisions,
-      latest: files.has(s.latest) ? s.latest : null, milestone: files.has(s.milestone) ? s.milestone : null,
+    const former = list(s.former_names).filter((f) => isObj(f) && okFile(f.key))
+      .map((f) => ({ key: f.key, title: str(f.title), how: String(f.how || "") }));
+    const r = isObj(s.redirect) ? s.redirect : null;
+    return {
+      key: s.key, title: str(s.title), status: s.status, status_label: String(s.status_label || ""),
+      in_progress: s.in_progress === true,
+      workgroup: str(s.workgroup), workgroup_raw: str(s.workgroup_raw),
+      workgroup_source: WG_SOURCES.has(s.workgroup_source) ? s.workgroup_source : null,
+      latest: files.has(s.latest) ? s.latest : revisions[revisions.length - 1].file, milestone: files.has(s.milestone) ? s.milestone : null,
       current_url: okFile(s.current_url) ? s.current_url : null,
-      updated: okDate(s.updated), authors: cleanAuthors(s.authors),
-      counts: Object.fromEntries(KINDS.map((k) => [k, Math.max(0, Number(s.counts && s.counts[k]) || 0)])),
-      former_names: Array.isArray(s.former_names) && s.former_names.some((f) => f && okFile(f.key))
-        ? s.former_names.filter((f) => f && okFile(f.key)).map((f) => Object.assign({}, f, { how: String(f.how || "") })) : undefined,
-      issues: (Array.isArray(s.issues) ? s.issues : []).filter((i) => i && SEVERITIES.has(i.severity))
-        .map((i) => Object.assign({}, i, { files: (Array.isArray(i.files) ? i.files : []).filter(okFile) })),
-      redirect: s.redirect && typeof s.redirect === "object"
-        ? Object.assign({}, s.redirect, { target: okFile(s.redirect.target) ? s.redirect.target : null, reason: String(s.redirect.reason || "Obsolete Specification") }) : s.redirect,
-    });
+      updated: okDate(s.updated), authors: cleanAuthors(s.authors), revisions,
+      counts: Object.fromEntries(KINDS.map((k) => [k, Math.max(0, Number(isObj(s.counts) && s.counts[k]) || 0)])),
+      former_names: former.length ? former : undefined,
+      issues: list(s.issues).map(cleanIssue).filter(Boolean),
+      redirect: r ? { reason: String(r.reason || "Obsolete Specification"), message: str(r.message),
+        target: okFile(r.target) ? r.target : null, target_key: okFile(r.target_key) ? r.target_key : null } : null,
+      note: str(s.note), curated: list(s.curated).length ? list(s.curated).map(String) : null,
+    };
   }
   function validate(data) {
-    if (!data || !Array.isArray(data.specs) || !okDate(String(data.generated || "").slice(0, 10))) throw new Error("unexpected data format");
-    return { generated: data.generated, source: data.source, specs: data.specs.map(cleanSpec).filter(Boolean) };
+    if (!isObj(data) || !Array.isArray(data.specs) || !okDate(String(data.generated || "").slice(0, 10))) throw new Error("unexpected data format");
+    return { generated: String(data.generated), source: str(data.source), specs: data.specs.map(cleanSpec).filter(Boolean) };
   }
 
   // ---------------------------------------------------------------- derive
@@ -174,7 +193,7 @@
 
   function renderActivity() {
     const el = $("#chart-activity");
-    const counts = {};
+    const counts = Object.create(null);
     SPECS.forEach((s) => s.revisions.forEach((r) => {
       const y = (r.date || r.listed || "").slice(0, 4);
       if (!y) return;
@@ -224,16 +243,21 @@
     });
   }
 
+  // WG names come from the documents, so they are Map keys, never object properties.
+  function wgTotals(specs) {
+    const groups = new Map();
+    specs.filter((s) => !s.superseded).forEach((s) => {
+      if (!groups.has(s.wg)) groups.set(s.wg, { final: 0, implementers: 0, draft: 0 });
+      groups.get(s.wg)[s.status]++;
+    });
+    return [...groups].map(([wg, c]) => ({ wg, c, t: c.final + c.implementers + c.draft }))
+      .sort((a, b) => (a.wg === NOT_STATED) - (b.wg === NOT_STATED) || b.t - a.t);
+  }
+
   function renderWg() {
     const el = $("#chart-wg");
-    const groups = {};
-    SPECS.filter((s) => !s.superseded).forEach((s) => {
-      const g = (groups[s.wg] = groups[s.wg] || { final: 0, implementers: 0, draft: 0 });
-      g[s.status]++;
-    });
     const order = ["final", "implementers", "draft"];
-    const rows = Object.entries(groups).map(([wg, c]) => ({ wg, c, t: c.final + c.implementers + c.draft }))
-      .sort((a, b) => (a.wg === NOT_STATED) - (b.wg === NOT_STATED) || b.t - a.t);
+    const rows = wgTotals(SPECS);
     const top = rows.find((r) => r.wg !== NOT_STATED);
     if (top) $("#wg-title").textContent = `${top.wg} maintains the most specifications (${top.t}, ${top.c.final} Final)`;
     const W = Math.max(el.clientWidth, 300), row = 22, m = { t: 4, r: 30, b: 4, l: 168 };
@@ -329,7 +353,8 @@
     $("#count").textContent = `${rows.length} of ${SPECS.filter((s) => state.superseded || !s.superseded).length}`;
     $("#empty").hidden = rows.length > 0;
     $("#specs tbody").innerHTML = rows.map((s) => {
-      const href = s.current_url ? specUrl(s.current_url) : specUrl((s.milestoneRev || s.latestRev).file);
+      const rev = s.milestoneRev || s.latestRev;
+      const href = s.current_url ? specUrl(s.current_url) : rev ? specUrl(rev.file) : SPECS_BASE;
       const latestDiff = s.latestRev && s.latestRev !== s.milestoneRev;
       return `<tr data-key="${esc(s.key)}" class="${s.superseded ? "superseded" : ""}" tabindex="0">
         <td data-label="Specification"><a class="spec-title" href="${href}" target="_blank" rel="noopener" data-stop>${esc(s.title || s.key)}</a>
@@ -425,19 +450,18 @@
     const h = p.toString();
     history.replaceState(null, "", h ? "#" + h : location.pathname + location.search);
   }
-  function readHash() {
-    const p = new URLSearchParams(location.hash.slice(1));
-    state.q = p.get("q") || "";
-    state.status = p.get("status") || "";
-    state.wg = p.get("wg") || "";
-    state.active = p.get("active") === "1";
-    state.superseded = p.get("all") === "1";
+  function parseHash(hash) {
+    const p = new URLSearchParams(hash.replace(/^#/, ""));
     const [sort, dir] = (p.get("sort") || "").split(":");
-    state.sort = SORTS.has(sort) ? sort : "updated";
-    state.dir = dir === "asc" || dir === "desc" ? dir : state.sort === "title" || state.sort === "workgroup" ? "asc" : "desc";
-    if (!(state.status in STATUS_RANK)) state.status = "";
-    state.open = p.get("spec");
+    const out = {
+      q: p.get("q") || "", status: STATUSES.has(p.get("status")) ? p.get("status") : "", wg: p.get("wg") || "",
+      active: p.get("active") === "1", superseded: p.get("all") === "1",
+      sort: SORTS.has(sort) ? sort : "updated", open: p.get("spec"),
+    };
+    out.dir = dir === "asc" || dir === "desc" ? dir : out.sort === "title" || out.sort === "workgroup" ? "asc" : "desc";
+    return out;
   }
+  function readHash() { Object.assign(state, parseHash(location.hash)); }
   function syncControls() {
     $("#q").value = state.q;
     $("#wg").value = state.wg;
@@ -454,12 +478,20 @@
   }
 
   // ---------------------------------------------------------------- CSV
+  // Spreadsheets evaluate a cell that starts with = + - @ (or the full-width forms), and
+  // some trim leading whitespace or control characters first. Any such cell gets a leading
+  // ' so it stays text; line breaks become spaces so every record is one line.
+  const CSV_RISKY = /^[\s\u0000-\u001f\u007f-\u009f\u00a0\u1680\u2000-\u200f\u2028-\u202f\u205f\u3000\ufeff=+\-@\uff1d\uff0b\uff0d\uff20]/;
+  function csvCell(v) {
+    let t = String(v ?? "").replace(/[\r\n\u2028\u2029]+/g, " ");
+    if (CSV_RISKY.test(t)) t = "'" + t;
+    return `"${t.replace(/"/g, '""')}"`;
+  }
   function exportCsv() {
     const cols = ["title", "key", "working_group", "status", "current_edition", "current_edition_date", "latest_revision", "latest_revision_date", "editors", "url"];
-    // A leading = + - @ (or tab/CR) makes spreadsheets evaluate the cell; prefix ' so it stays text.
-    const q = (v) => { let t = String(v ?? ""); if (/^[=+\-@\t\r]/.test(t)) t = "'" + t; return `"${t.replace(/"/g, '""')}"`; };
+    const q = csvCell;
     const lines = [cols.join(",")].concat(filtered().map((s) => [
-      s.title, s.key, s.wg, s.status_label + (s.counts.errata ? " (errata " + s.milestoneRev.number + ")" : ""),
+      s.title, s.key, s.wg, s.status_label + (s.counts.errata && s.milestoneRev ? " (errata " + s.milestoneRev.number + ")" : ""),
       s.milestoneRev && s.milestoneRev.file, s.milestoneRev && (s.milestoneRev.date || s.milestoneRev.listed),
       s.latestRev && s.latestRev.file, s.latestRev && (s.latestRev.date || s.latestRev.listed),
       (s.authors || []).map((a) => a.name).join("; "),
@@ -534,5 +566,7 @@
     addEventListener("hashchange", () => { readHash(); update(); if (state.open) openDrawer(state.open, false); else $("#drawer").setAttribute("aria-hidden", "true"); });
   }
 
-  main();
+  // Under Node (tests/app.test.mjs) expose the data-handling functions instead of rendering.
+  if (typeof module === "object" && module.exports) module.exports = { validate, prepare, wgTotals, csvCell, parseHash, specUrl, fmtDate };
+  else main();
 })();
