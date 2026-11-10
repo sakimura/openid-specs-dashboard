@@ -7,6 +7,7 @@ import urllib.request
 from unittest import mock
 
 import build_data as b
+import source_issues
 
 
 class Classify(unittest.TestCase):
@@ -307,6 +308,24 @@ class Sitemap(unittest.TestCase):
         ns = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
         self.assertEqual([u.find(ns + "loc").text for u in root], [b.BASE_URL + "a-1_0.html", b.BASE_URL + "b-1_0.html"])
         self.assertIsNone(root[1].find(ns + "lastmod"))
+
+
+class CuratedWorkgroupIssue(unittest.TestCase):
+    def issue(self, curated):
+        rev = {"file": "x-1_0-ID1", "kind": "implementers", "workgroup": None, "date": "2020-07-15", "authors": []}
+        spec = {"key": "x-1_0", "title": "X", "workgroup": "AB/Connect", "latest": "x-1_0-ID1",
+                "milestone": "x-1_0-ID1", "revisions": [rev]}
+        return source_issues.find_issues([spec], curated)[0]
+
+    def test_inferred_workgroup(self):
+        self.assertEqual(self.issue(None)["expected"], "AB/Connect")
+        self.assertIn("infers AB/Connect", self.issue(None)["detail"])
+
+    def test_curated_workgroup_replaces_the_inferred_one(self):
+        issue = self.issue({"x-1_0": "MODRNA"})
+        self.assertEqual(issue["expected"], "MODRNA")
+        self.assertIn("MODRNA, set in overrides.json", issue["detail"])
+        self.assertNotIn("AB/Connect", issue["detail"])
 
 
 if __name__ == "__main__":

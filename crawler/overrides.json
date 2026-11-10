@@ -6,6 +6,9 @@
   "openid-connect-4-verifiable-presentations-1_0": {
     "renamed_to": "openid-4-verifiable-presentations-1_0"
   },
+  "openid-connect-user-questioning-api-1_0": {
+    "workgroup": "MODRNA"
+  },
   "openid-connect-modrna-client-initiated-backchannel-authentication-1_0": {
     "renamed_to": "openid-client-initiated-backchannel-authentication-core-1_0"
   },
