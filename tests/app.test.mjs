@@ -118,3 +118,21 @@ test("CSV cells that a spreadsheet could evaluate are kept as text", () => {
 test("the CSV file starts with a UTF-8 BOM so Excel reads non-ASCII text correctly", () => {
   assert.equal(app.csvFile(["title", '"＝1+1"']), '\ufefftitle\n"＝1+1"');
 });
+
+test("source_repo keeps only safe names and the link is built by the page", () => {
+  const clean = (source_repo) => app.validate(data(spec({ source_repo }))).specs[0].source_repo;
+  const ok = clean({ repo: "fapi", path: "FAPI_1.0/a-1_0.md", url: "https://evil.example" });
+  assert.deepEqual(ok, { repo: "fapi", path: "FAPI_1.0/a-1_0.md" });
+  assert.equal(app.sourceUrl(ok), "https://github.com/openid/fapi/commits/HEAD/FAPI_1.0/a-1_0.md");
+  for (const bad of [{ repo: "../x", path: "a.md" }, { repo: "a", path: "../a.md" }, { repo: "a", path: "a\"><img>.md" }, { repo: "a" }, "fapi", null]) {
+    assert.equal(clean(bad), null, JSON.stringify(bad));
+  }
+});
+
+test("draftGap reports only numbers skipped from -00", () => {
+  const drafts = (...nums) => nums.map((number) => ({ kind: "draft", number }));
+  assert.equal(app.draftGap(drafts("10", "11")), true);
+  assert.equal(app.draftGap(drafts("00", "01", "02")), false);
+  assert.equal(app.draftGap(drafts("2017-05-31")), false);
+  assert.equal(app.draftGap([{ kind: "implementers", number: "2" }]), false);
+});

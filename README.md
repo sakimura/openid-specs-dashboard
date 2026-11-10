@@ -73,11 +73,15 @@ specs). Put corrections in `crawler/overrides.json`:
 ```
 
 Allowed fields: `title`, `workgroup`, `status`, `note`, `renamed_to` (merge a spec
-renamed without a redirect page into its successor), and `moved_to` (work continued at
+renamed without a redirect page into its successor), `source_repo` (the file holding a
+spec's working drafts, e.g. `{"repo": "modrna", "path": "openid-connect-user-questioning-api-1_0.xml"}`,
+shown as a link to its history under github.com/openid; add one only after checking the
+file is that spec), and `moved_to` (work continued at
 another body, e.g. `{"body": "IETF", "via": "draft-ietf-oauth-json-web-token", "rfc": 7519,
 "rfc_title": "JSON Web Token (JWT)"}`). Moved specs are hidden with the obsolete ones by
 default, show a "Moved to IETF" badge with the RFC link, and are left out of the sitemap. Keys can be a current or former name. Overridden fields are listed in
-the detail panel so it is always clear what came from the document and what did not.
+the detail panel so it is always clear what came from the document and what did not;
+`source_repo` is a pointer rather than a correction, so it is not listed there.
 
 ## Source fixes report
 

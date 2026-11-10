@@ -94,6 +94,19 @@
       rfc_title: str(m.rfc_title), rfc_date: okDate(m.rfc_date), note: str(m.note),
     };
   }
+  // Where the working drafts are kept. As above, only names are kept and the link is built here.
+  const SOURCE_REPO = /^[A-Za-z0-9_-][A-Za-z0-9._-]{0,99}$/;
+  const SOURCE_PATH = /^[A-Za-z0-9_-][A-Za-z0-9._-]*(\/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$/;
+  function cleanSourceRepo(v) {
+    if (!isObj(v) || typeof v.repo !== "string" || typeof v.path !== "string") return null;
+    return SOURCE_REPO.test(v.repo) && v.path.length <= 300 && SOURCE_PATH.test(v.path) ? { repo: v.repo, path: v.path } : null;
+  }
+  const sourceUrl = (v) => "https://github.com/openid/" + encodeURIComponent(v.repo) + "/commits/HEAD/" + v.path.split("/").map(encodeURIComponent).join("/");
+  // True when the numbered drafts listed skip a number, counting from -00.
+  function draftGap(revisions) {
+    const n = new Set(revisions.filter((r) => r.kind === "draft" && /^\d{1,3}$/.test(r.number || "")).map((r) => Number(r.number)));
+    return n.size > 0 && n.size < Math.max(...n) + 1;
+  }
   const rfcUrl = (n) => "https://www.rfc-editor.org/rfc/rfc" + n;
   const draftUrl = (name) => "https://datatracker.ietf.org/doc/" + encodeURIComponent(name) + "/";
   function cleanSpec(s) {
@@ -119,6 +132,7 @@
       redirect: r ? { reason: String(r.reason || "Obsolete Specification"), message: str(r.message),
         target: okFile(r.target) ? r.target : null, target_key: okFile(r.target_key) ? r.target_key : null } : null,
       moved_to: cleanMovedTo(s.moved_to),
+      source_repo: cleanSourceRepo(s.source_repo),
       note: str(s.note), curated: list(s.curated).length ? list(s.curated).map(String) : null,
     };
   }
@@ -474,6 +488,7 @@
       <div class="d-section kicker">Editors${m ? ` of ${esc(m.label)}` : ""}</div>
       <div class="authors">${allAuthors.length ? allAuthors.map((a) => `<div class="author"><div>${esc(a.name)}</div>${a.org ? `<div class="org">${esc(a.org)}</div>` : ""}</div>`).join("") : '<span class="spec-key">Not stated</span>'}</div>
       <div class="d-section kicker">Revision history</div>
+      ${s.source_repo ? `<p class="source-note">${draftGap(s.revisions) ? "Some draft numbers are not on openid.net. " : ""}Working history: <a href="${sourceUrl(s.source_repo)}" target="_blank" rel="noopener">GitHub ↗</a></p>` : ""}
       <ol class="timeline">${movedItems(s.moved_to)}${revs.map(revItem).join("")}</ol>
       ${revs.length > LIMIT ? `<p class="collapsed-note"><button class="linkbtn" id="more">Show all ${revs.length} revisions</button></p>` : ""}
     `;
@@ -629,6 +644,6 @@
   }
 
   // Under Node (tests/app.test.mjs) expose the data-handling functions instead of rendering.
-  if (typeof module === "object" && module.exports) module.exports = { validate, prepare, wgTotals, csvCell, csvFile, parseHash, specUrl, fmtDate };
+  if (typeof module === "object" && module.exports) module.exports = { validate, prepare, wgTotals, csvCell, csvFile, parseHash, draftGap, sourceUrl, specUrl, fmtDate };
   else main();
 })();
