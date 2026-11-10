@@ -1011,7 +1011,7 @@ def _inherit_workgroups(result):
                 break
 
 
-OVERRIDABLE = {"title", "workgroup", "status", "note", "moved_to"}
+OVERRIDABLE = {"title", "workgroup", "status", "note", "moved_to", "source_repo"}
 
 
 def clean_moved_to(v):
@@ -1040,6 +1040,20 @@ def clean_moved_to(v):
     if v.get("note"):
         out["note"] = str(v["note"])
     return out
+
+
+def clean_source_repo(v):
+    """Validate a `source_repo` override: where a spec's working drafts are kept.
+
+    {"repo": "modrna", "path": "openid-connect-user-questioning-api-1_0.xml"}. Only names
+    are kept: the page builds the github.com/openid link itself."""
+    if not isinstance(v, dict) or not isinstance(v.get("repo"), str) or not isinstance(v.get("path"), str):
+        raise ValueError("source_repo needs a repo and a path")
+    if not re.fullmatch(r"[A-Za-z0-9_-][A-Za-z0-9._-]{0,99}", v["repo"]):
+        raise ValueError("source_repo.repo must be a repository name")
+    if len(v["path"]) > 300 or not re.fullmatch(r"[A-Za-z0-9_-][A-Za-z0-9._-]*(/[A-Za-z0-9_-][A-Za-z0-9._-]*)*", v["path"]):
+        raise ValueError("source_repo.path must be a relative file path")
+    return {"repo": v["repo"], "path": v["path"]}
 
 
 def load_overrides(path):
@@ -1081,6 +1095,12 @@ def apply_overrides(specs, overrides):
                 except ValueError as err:
                     print("  ! %s: %s" % (key, err), file=sys.stderr)
                     continue
+            if field == "source_repo":  # a pointer, not a correction: not listed as curated
+                try:
+                    e[field] = clean_source_repo(value)
+                except ValueError as err:
+                    print("  ! %s: %s" % (key, err), file=sys.stderr)
+                continue
             e[field] = value
             if field not in e.setdefault("curated", []):
                 e["curated"].append(field)

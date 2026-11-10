@@ -310,6 +310,25 @@ class Sitemap(unittest.TestCase):
         self.assertIsNone(root[1].find(ns + "lastmod"))
 
 
+class SourceRepo(unittest.TestCase):
+    def test_names_are_kept(self):
+        v = {"repo": "fapi", "path": "FAPI_1.0/openid-financial-api-part-1-1_0.md", "url": "https://evil.example"}
+        self.assertEqual(b.clean_source_repo(v), {"repo": "fapi", "path": "FAPI_1.0/openid-financial-api-part-1-1_0.md"})
+
+    def test_bad_values_are_rejected(self):
+        for v in ({"repo": "a/b", "path": "x.md"}, {"repo": "..", "path": "x.md"}, {"repo": "a", "path": "../x.md"},
+                  {"repo": "a", "path": "/x.md"}, {"repo": "a", "path": "x?y=1"}, {"repo": "a"}, "modrna"):
+            with self.assertRaises(ValueError, msg=repr(v)):
+                b.clean_source_repo(v)
+
+    def test_not_listed_as_curated(self):
+        spec = {"key": "x-1_0"}
+        applied = b.apply_overrides([spec], {"x-1_0": {"source_repo": {"repo": "modrna", "path": "x.xml"}}})
+        self.assertEqual(spec["source_repo"], {"repo": "modrna", "path": "x.xml"})
+        self.assertNotIn("curated", spec)
+        self.assertEqual(applied, {})
+
+
 class CuratedWorkgroupIssue(unittest.TestCase):
     def issue(self, curated):
         rev = {"file": "x-1_0-ID1", "kind": "implementers", "workgroup": None, "date": "2020-07-15", "authors": []}

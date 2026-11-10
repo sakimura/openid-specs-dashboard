@@ -1,5 +1,5 @@
 {
-  "_comment": "Curated corrections for facts a document does not state, or states wrongly. Keys are spec keys (filename stem without revision suffix), current or former. Allowed fields: title, workgroup, status (final|implementers|draft), note, renamed_to (merge a spec renamed without a redirect stub into its successor), moved_to (work continued at another body: {body, via (Internet-Draft name), rfc (number), rfc_title, rfc_date (YYYY-MM), note}). Remove an entry once the source is fixed and republished; reports/source-fixes.md lists what still needs fixing.",
+  "_comment": "Curated corrections for facts a document does not state, or states wrongly. Keys are spec keys (filename stem without revision suffix), current or former. Allowed fields: title, workgroup, status (final|implementers|draft), note, renamed_to (merge a spec renamed without a redirect stub into its successor), source_repo (where the working drafts are: {repo (under github.com/openid), path}; not a correction, so not listed as curated), moved_to (work continued at another body: {body, via (Internet-Draft name), rfc (number), rfc_title, rfc_date (YYYY-MM), note}). Remove an entry once the source is fixed and republished; reports/source-fixes.md lists what still needs fixing.",
   "fapi-2_0-baseline": {
     "note": "FAPI 2.0 Baseline Profile 00, 01 and ID1 state workgroup \"connect\" — a template error. FAPI 2.0 was developed in the FAPI WG."
   },
@@ -7,7 +7,11 @@
     "renamed_to": "openid-4-verifiable-presentations-1_0"
   },
   "openid-connect-user-questioning-api-1_0": {
-    "workgroup": "MODRNA"
+    "workgroup": "MODRNA",
+    "source_repo": {
+      "repo": "modrna",
+      "path": "openid-connect-user-questioning-api-1_0.xml"
+    }
   },
   "openid-connect-modrna-client-initiated-backchannel-authentication-1_0": {
     "renamed_to": "openid-client-initiated-backchannel-authentication-core-1_0"
@@ -67,6 +71,187 @@
     "moved_to": {
       "body": "IETF",
       "note": "Continued as an IETF individual draft (last revision -04); it expired without becoming an RFC."
+    }
+  },
+  "fapi-attacker-model-2_0": {
+    "source_repo": {
+      "repo": "fapi",
+      "path": "fapi-2_0-attacker-model.md"
+    }
+  },
+  "fapi-message-signing-2_0": {
+    "source_repo": {
+      "repo": "fapi",
+      "path": "fapi-2_0-message-signing.md"
+    }
+  },
+  "fapi-security-profile-2_0": {
+    "source_repo": {
+      "repo": "fapi",
+      "path": "fapi-2_0-security-profile.md"
+    }
+  },
+  "oauth-v2-form-post-response-mode-1_0": {
+    "source_repo": {
+      "repo": "connect",
+      "path": "oauth-v2-form-post-response-mode-1_0.xml"
+    }
+  },
+  "oauth-v2-grant-management": {
+    "source_repo": {
+      "repo": "fapi",
+      "path": "oauth-v2-grant-management.md"
+    }
+  },
+  "oauth-v2-jarm": {
+    "source_repo": {
+      "repo": "fapi",
+      "path": "oauth-v2-jarm.md"
+    }
+  },
+  "oauth-v2-multiple-response-types-1_0": {
+    "source_repo": {
+      "repo": "connect",
+      "path": "oauth-v2-multiple-response-types-1_0.xml"
+    }
+  },
+  "openid-4-verifiable-presentations-over-ble-1_0": {
+    "source_repo": {
+      "repo": "connect",
+      "path": "openid-4-verifiable-presentations-over-ble/openid-4-verifiable-presentations-over-ble-1_0.md"
+    }
+  },
+  "openid-client-initiated-backchannel-authentication-core-1_0": {
+    "source_repo": {
+      "repo": "modrna",
+      "path": "openid-client-initiated-backchannel-authentication-core-1_0.xml"
+    }
+  },
+  "openid-connect-account-porting-1_0": {
+    "workgroup": "MODRNA",
+    "source_repo": {
+      "repo": "modrna",
+      "path": "openid-connect-account-porting-1_0.xml"
+    }
+  },
+  "openid-connect-backchannel-1_0": {
+    "source_repo": {
+      "repo": "connect",
+      "path": "openid-connect-backchannel-1_0.xml"
+    }
+  },
+  "openid-connect-basic-1_0": {
+    "source_repo": {
+      "repo": "connect",
+      "path": "openid-connect-basic-1_0.xml"
+    }
+  },
+  "openid-connect-core-1_0": {
+    "source_repo": {
+      "repo": "connect",
+      "path": "openid-connect-core-1_0.xml"
+    }
+  },
+  "openid-connect-discovery-1_0": {
+    "source_repo": {
+      "repo": "connect",
+      "path": "openid-connect-discovery-1_0.xml"
+    }
+  },
+  "openid-connect-frontchannel-1_0": {
+    "source_repo": {
+      "repo": "connect",
+      "path": "openid-connect-frontchannel-1_0.xml"
+    }
+  },
+  "openid-connect-implicit-1_0": {
+    "source_repo": {
+      "repo": "connect",
+      "path": "openid-connect-implicit-1_0.xml"
+    }
+  },
+  "openid-connect-migration-1_0": {
+    "source_repo": {
+      "repo": "connect",
+      "path": "openid-connect-migration-1_0.xml"
+    }
+  },
+  "openid-connect-modrna-authentication-1_0": {
+    "source_repo": {
+      "repo": "modrna",
+      "path": "openid-connect-modrna-authentication-1_0.xml"
+    }
+  },
+  "openid-connect-modrna-client-initiated-backchannel-authentication-profile-1_0": {
+    "source_repo": {
+      "repo": "modrna",
+      "path": "openid-connect-modrna-client-initiated-backchannel-authentication-profile-1_0.xml"
+    }
+  },
+  "openid-connect-modrna-discovery-1_0": {
+    "source_repo": {
+      "repo": "modrna",
+      "path": "openid-connect-modrna-discovery-1_0.xml"
+    }
+  },
+  "openid-connect-prompt-create-1_0": {
+    "source_repo": {
+      "repo": "connect",
+      "path": "openid-connect-prompt-create-1_0.xml"
+    }
+  },
+  "openid-connect-registration-1_0": {
+    "source_repo": {
+      "repo": "connect",
+      "path": "openid-connect-registration-1_0.xml"
+    }
+  },
+  "openid-connect-rpinitiated-1_0": {
+    "source_repo": {
+      "repo": "connect",
+      "path": "openid-connect-rpinitiated-1_0.xml"
+    }
+  },
+  "openid-connect-scim-profile-1_0": {
+    "source_repo": {
+      "repo": "connect",
+      "path": "openid-connect-scim-profile-1_0.xml"
+    }
+  },
+  "openid-connect-session-1_0": {
+    "source_repo": {
+      "repo": "connect",
+      "path": "openid-connect-session-1_0.xml"
+    }
+  },
+  "openid-connect-token-hash-algorithms-1_0": {
+    "source_repo": {
+      "repo": "connect",
+      "path": "openid-connect-token-hash-algorithms-1_0.xml"
+    }
+  },
+  "openid-connect-unmet-authentication-requirements-1_0": {
+    "source_repo": {
+      "repo": "connect",
+      "path": "openid-connect-unmet-authentication-requirements-1_0.xml"
+    }
+  },
+  "openid-connect-userinfo-vc-1_0": {
+    "source_repo": {
+      "repo": "connect",
+      "path": "openid-connect-userinfo-vc-1_0.md"
+    }
+  },
+  "openid-financial-api-part-1-1_0": {
+    "source_repo": {
+      "repo": "fapi",
+      "path": "FAPI_1.0/openid-financial-api-part-1-1_0.md"
+    }
+  },
+  "openid-financial-api-part-2-1_0": {
+    "source_repo": {
+      "repo": "fapi",
+      "path": "FAPI_1.0/openid-financial-api-part-2-1_0.md"
     }
   }
 }
