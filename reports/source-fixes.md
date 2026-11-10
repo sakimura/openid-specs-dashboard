@@ -1,6 +1,6 @@
 # Spec source metadata to fix
 
-Generated 2026-11-02 by `crawler/build_data.py` from https://openid.net/specs/. Regenerated on every crawl; an entry disappears once a corrected revision is published.
+Generated 2026-11-10 by `crawler/build_data.py` from https://openid.net/specs/. Regenerated on every crawl; an entry disappears once a corrected revision is published.
 
 Until a fix is published, the dashboard uses `crawler/overrides.json`. Specs with an override are marked **(overridden)** below.
 
@@ -120,7 +120,7 @@ Last revised before 2021. Listed for completeness; fix only if the spec is repub
 | OpenID Connect MODRNA Authentication Profile 1.0<br>`openid-connect-modrna-authentication-1_0` | [`openid-connect-modrna-authentication-1_0-ID1`](https://openid.net/specs/openid-connect-modrna-authentication-1_0-ID1.html) | (none) | MODRNA | No workgroup in the document header, IANA Change Controller, or WG list address. Dashboard infers MODRNA. |
 | MODRNA: Client Initiated Backchannel Authentication Profile 1.0<br>`openid-connect-modrna-client-initiated-backchannel-authentication-profile-1_0` | [`openid-connect-modrna-client-initiated-backchannel-authentication-profile-1_0-03`](https://openid.net/specs/openid-connect-modrna-client-initiated-backchannel-authentication-profile-1_0-03.html) | (none) | MODRNA | No workgroup in the document header, IANA Change Controller, or WG list address. Dashboard infers MODRNA. |
 | OpenID Connect MODRNA Discovery Profile 1.0<br>`openid-connect-modrna-discovery-1_0` | [`openid-connect-modrna-discovery-1_0-05`](https://openid.net/specs/openid-connect-modrna-discovery-1_0-05.html) | (none) | MODRNA | No workgroup in the document header, IANA Change Controller, or WG list address. Dashboard infers MODRNA. |
-| OpenID Connect User Questioning API 1.0<br>`openid-connect-user-questioning-api-1_0` | [`openid-connect-user-questioning-api-1_0-ID2`](https://openid.net/specs/openid-connect-user-questioning-api-1_0-ID2.html) | (none) | AB/Connect | No workgroup in the document header, IANA Change Controller, or WG list address. Dashboard infers AB/Connect. |
+| OpenID Connect User Questioning API 1.0<br>`openid-connect-user-questioning-api-1_0` **(overridden)** | [`openid-connect-user-questioning-api-1_0-ID2`](https://openid.net/specs/openid-connect-user-questioning-api-1_0-ID2.html) | (none) | MODRNA | No workgroup in the document header, IANA Change Controller, or WG list address. Dashboard shows MODRNA, set in overrides.json. |
 | OpenID DTP Version 1.0 Adjuncts<br>`openid-dtp-adjuncts-1_0` | [`openid-dtp-adjuncts-1_0-02`](https://openid.net/specs/openid-dtp-adjuncts-1_0-02.html) | (none) | ? | No workgroup in the document header, IANA Change Controller, or WG list address. |
 | OpenID DTP Version 1.0 Envelopes<br>`openid-dtp-envelopes-1_0` | [`openid-dtp-envelopes-1_0-02`](https://openid.net/specs/openid-dtp-envelopes-1_0-02.html) | (none) | ? | No workgroup in the document header, IANA Change Controller, or WG list address. |
 | OpenID DTP Messages 1.0<br>`openid-dtp-messages-1_0` | [`openid-dtp-messages-1_0-03`](https://openid.net/specs/openid-dtp-messages-1_0-03.html) | (none) | ? | No workgroup in the document header, IANA Change Controller, or WG list address. |
