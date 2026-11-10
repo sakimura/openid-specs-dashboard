@@ -1139,7 +1139,8 @@ def main():
 
     # Check the documents before overrides are applied, so the report reflects the sources.
     import source_issues
-    issues = source_issues.find_issues(specs)
+    curated_wg = {k: v["workgroup"] for k, v in overrides.items() if isinstance(v, dict) and "workgroup" in v}
+    issues = source_issues.find_issues(specs, curated_wg)
     overrides = apply_overrides(specs, overrides)
     os.makedirs(os.path.dirname(args.report), exist_ok=True)
     write_atomic(args.report, source_issues.render_markdown(issues, generated[:10], overrides))

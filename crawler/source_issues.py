@@ -51,8 +51,10 @@ def _d(r):
     return r["date"] or r["listed"] or ""
 
 
-def find_issues(specs):
-    """Return a list of issue dicts and attach a per-spec summary as spec["issues"]."""
+def find_issues(specs, curated_wg=None):
+    """Return a list of issue dicts and attach a per-spec summary as spec["issues"].
+    curated_wg maps spec keys to a working group set in overrides.json."""
+    curated_wg = curated_wg or {}
     issues = []
     live = [s for s in specs if not s.get("redirect")]
 
@@ -99,12 +101,16 @@ def find_issues(specs):
         latest = next((r for r in s["revisions"] if r["file"] == s["latest"]), None)
         if latest and not latest["workgroup"]:
             active = _d(latest) >= ACTIVE_SINCE
+            names = [s["key"]] + [f["key"] for f in s.get("former_names") or []]
+            curated = next((curated_wg[n] for n in names if n in curated_wg), None)
+            wg = curated or s["workgroup"]
             issues.append({
                 "severity": "missing" if active else "historical", "category": "Working group", "key": s["key"], "title": s["title"],
                 "files": [latest["file"]], "found": "(none)",
-                "expected": s["workgroup"] or "?",
+                "expected": wg or "?",
                 "detail": "No workgroup in the document header, IANA Change Controller, or WG list address."
-                + (" Dashboard infers %s." % s["workgroup"] if s["workgroup"] else ""),
+                + (" Dashboard shows %s, set in overrides.json." % wg if curated
+                   else " Dashboard infers %s." % wg if wg else ""),
                 "current": True,
             })
 
