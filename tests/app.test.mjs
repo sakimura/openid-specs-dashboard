@@ -114,3 +114,7 @@ test("CSV cells that a spreadsheet could evaluate are kept as text", () => {
   assert.equal(app.csvCell("line one\nline two"), '"line one line two"');
   assert.equal(app.csvCell(null), '""');
 });
+
+test("the CSV file starts with a UTF-8 BOM so Excel reads non-ASCII text correctly", () => {
+  assert.equal(app.csvFile(["title", '"＝1+1"']), '\ufefftitle\n"＝1+1"');
+});

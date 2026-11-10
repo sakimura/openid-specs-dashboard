@@ -543,6 +543,9 @@
     if (CSV_RISKY.test(t)) t = "'" + t;
     return `"${t.replace(/"/g, '""')}"`;
   }
+  // The BOM tells Excel the file is UTF-8; without it Excel uses the system encoding.
+  const csvFile = (lines) => "\ufeff" + lines.join("\n");
+
   function exportCsv() {
     const cols = ["title", "key", "working_group", "status", "latest_approved", "latest_approved_date", "latest_revision", "latest_revision_date", "editors", "url"];
     const q = csvCell;
@@ -556,7 +559,7 @@
       (s.authors || []).map((a) => a.name).join("; "),
       s.current_url ? specUrl(s.current_url) : "",
     ].map(q).join(",")));
-    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const blob = new Blob([csvFile(lines)], { type: "text/csv" });
     const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "openid-specs.csv" });
     a.click();
     URL.revokeObjectURL(a.href);
@@ -626,6 +629,6 @@
   }
 
   // Under Node (tests/app.test.mjs) expose the data-handling functions instead of rendering.
-  if (typeof module === "object" && module.exports) module.exports = { validate, prepare, wgTotals, csvCell, parseHash, specUrl, fmtDate };
+  if (typeof module === "object" && module.exports) module.exports = { validate, prepare, wgTotals, csvCell, csvFile, parseHash, specUrl, fmtDate };
   else main();
 })();
