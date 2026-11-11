@@ -136,7 +136,9 @@ The current `https://openid.net/addl-sitemap.xml` lists only the `/specs` direct
 specs page, so crawlers see all ~2,600 files as equals. To use this one:
 
 1. Serve it from openid.net, e.g. as `https://openid.net/specs/sitemap-specs.xml`. A sitemap
-   may only list URLs on its own host, unless that host's `robots.txt` points to it.
+   may only list URLs on its own host and under its own path, unless that host's
+   `robots.txt` points to it. Served with the dashboard at
+   `/developers/specs/sitemap-specs.xml`, it needs the `robots.txt` line.
 2. Add `Sitemap: https://openid.net/specs/sitemap-specs.xml` to `robots.txt`, or submit it
    in Google Search Console and Bing Webmaster Tools.
 
@@ -168,8 +170,10 @@ The crawler and the page treat everything from openid.net/specs as untrusted inp
   are percent-encoded. URL-hash parameters are checked against allowed values.
 - **CSV export:** a cell that starts with `= + - @`, their full-width forms, whitespace or a
   control character gets a leading `'`, and line breaks become spaces. In LibreOffice no
-  such cell imports as a formula. Excel hasn't been tested. The `'` shows in the cell; that
-  is the price of keeping the cell inert.
+  such cell imports as a formula, and none did in Excel for Mac either, including after
+  saving and reopening (see `tests/verify/README.md`). The `'` shows in the cell; that is
+  the price of keeping the cell inert. The file starts with a UTF-8 BOM so that Excel reads
+  non-ASCII text correctly.
   A Content-Security-Policy meta tag allows only same-origin scripts, styles and data.
   `frame-ancestors` needs an HTTP header, which GitHub Pages cannot set; add it on openid.net.
 - **CI:** the workflow is read-only by default. The crawl job cannot push or deploy, the
@@ -179,10 +183,80 @@ The crawler and the page treat everything from openid.net/specs as untrusted inp
 
 ## Deploying on openid.net
 
-1. Schedule the crawler (e.g. hourly cron) on the host, writing into the web root:
-   `python3 crawler/build_data.py --out /var/www/openid.net/specs-dashboard/data/specs.json`
-2. Serve `public/` at a path such as `/specs-dashboard/`. All asset paths are relative.
-3. Alternatively, run the crawler in CI and publish `public/` as static files.
+The dashboard is meant to replace `https://openid.net/developers/specs/`, which today is
+a WordPress page served by Apache behind a CDN. Requests for that path have to reach the
+static files in `public/` instead of WordPress. All asset paths are relative, so any
+directory works as long as the URL ends in `/`.
+
+**With access to the virtual host (preferred).** Check the repository out outside the web
+root, e.g. at `/srv/openid-specs-dashboard`, and map the path to its `public/`:
+
+```apache
+Alias /developers/specs /srv/openid-specs-dashboard/public
+
+<Directory /srv/openid-specs-dashboard/public>
+    Require all granted
+    Options -Indexes
+    AllowOverride None
+    DirectoryIndex index.html
+
+    <IfModule mod_headers.c>
+        Header always set Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+        Header always set X-Content-Type-Options "nosniff"
+        Header always set Referrer-Policy "strict-origin-when-cross-origin"
+        <FilesMatch "\.(html|js|css|json|xml)$">
+            Header set Cache-Control "public, max-age=600"
+        </FilesMatch>
+    </IfModule>
+</Directory>
+```
+
+- `mod_dir` redirects `/developers/specs` to `/developers/specs/`.
+- The directory is outside the web root, so WordPress's `.htaccess` does not apply. If the
+  WordPress rewrite rules are in the virtual host instead, they run before `Alias`; put
+  `RewriteRule ^/developers/specs(/.*)?$ - [L]` ahead of them.
+- The header repeats the meta tag's policy and adds `frame-ancestors`, which only works
+  as a header.
+
+**With `.htaccess` only.** Copy the contents of `public/` into
+`<web root>/developers/specs/`. WordPress's standard rules leave existing files and
+directories alone. Put this `.htaccess` in that directory; it needs `AllowOverride` to
+allow `Options` and `FileInfo`:
+
+```apache
+DirectoryIndex index.html
+Options -Indexes
+<IfModule mod_headers.c>
+    Header always set Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    Header always set X-Content-Type-Options "nosniff"
+    <FilesMatch "\.(html|js|css|json|xml)$">
+        Header set Cache-Control "public, max-age=600"
+    </FilesMatch>
+</IfModule>
+```
+
+Check that WordPress deployments and backup restores leave the directory in place.
+
+**Either way:**
+
+1. Run the crawler daily from cron, as a user that can write only to the dashboard's
+   files. With the `Alias` setup, `cd /srv/openid-specs-dashboard && python3 crawler/build_data.py`
+   updates `public/data/specs.json` and the sitemap. With the `.htaccess` setup, add
+   `--out <web root>/developers/specs/data/specs.json` and
+   `--sitemap <web root>/developers/specs/sitemap-specs.xml`. Files are replaced whole,
+   so a request never reads a half-written one.
+2. Set the WordPress page back to draft rather than deleting it, so the change can be undone.
+3. Purge `/developers/specs/*` from the CDN after switching; it caches pages for an hour.
+4. If the sitemap is served from the dashboard's directory, add
+   `Sitemap: https://openid.net/developers/specs/sitemap-specs.xml` to `robots.txt` (see
+   [Sitemap for search engines](#sitemap-for-search-engines)).
+5. Check the result:
+
+   ```bash
+   curl -sI https://openid.net/developers/specs | grep -i location
+   curl -sI https://openid.net/developers/specs/ | grep -i -E 'content-security|cache-control'
+   curl -s https://openid.net/developers/specs/data/specs.json | head -c 200
+   ```
 
 ## Tests
 
