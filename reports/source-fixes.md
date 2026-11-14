@@ -1,6 +1,6 @@
 # Spec source metadata to fix
 
-Generated 2026-11-10 by `crawler/build_data.py` from https://openid.net/specs/. Regenerated on every crawl; an entry disappears once a corrected revision is published.
+Generated 2026-11-14 by `crawler/build_data.py` from https://openid.net/specs/. Regenerated on every crawl; an entry disappears once a corrected revision is published.
 
 Until a fix is published, the dashboard uses `crawler/overrides.json`. Specs with an override are marked **(overridden)** below.
 
@@ -64,7 +64,7 @@ The same WG is spelled differently in the `workgroup` header field across specs 
 
 | WG | Spelling in document | Used by |
 |---|---|---|
-| AB/Connect | `OpenID Connect Working Group` | `openid-connect-native-sso-1_0-ID2`, `openid-connect-rp-metadata-choices-1_0-final`, `openid-connect-token-hash-algorithms-1_0-00`, `openid-federation-1_0-final`, `openid-federation-1_1-final`, `openid-federation-connect-1_1-final`, `openid-federation-entity-collection-1_0-01`, `openid-federation-extended-listing-1_0-ID1`, `openid-federation-wallet-1_0-05` |
+| AB/Connect | `OpenID Connect Working Group` | `openid-connect-native-sso-1_0-ID2`, `openid-connect-rp-metadata-choices-1_0-final`, `openid-connect-token-hash-algorithms-1_0-00`, `openid-federation-1_0-final`, `openid-federation-1_1-final`, `openid-federation-connect-1_1-final`, `openid-federation-entity-collection-1_0-02`, `openid-federation-extended-listing-1_0-ID1`, `openid-federation-wallet-1_0-06` |
 | AB/Connect | `OpenID Connect` | `openid-4-verifiable-presentations-over-ble-1_0-00`, `openid-connect-enterprise-extensions-1_0-01`, `openid-connect-key-binding-1_0-ID1`, `openid-connect-self-issued-v2-1_0-ID1`, `openid-connect-userinfo-vc-1_0-00`, `openid-provider-commands-1_0-02` |
 | AB/Connect | `connect` | `openid-connect-claims-aggregation-1_0-03` |
 | AB/Connect | `Connect` | `openid-connect-ephemeral-subject-identifier-1_0-final` |
